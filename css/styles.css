@@ -1,0 +1,2517 @@
+/* ==========================================================================
+   Cross-page transitions — "liquid glass" rise
+   Native browser support (no JS, no overlay element): the incoming page
+   rises up from the bottom of the viewport with a heavy blur that clears
+   as it settles, like frosted glass coming into focus, while the outgoing
+   page recedes gently underneath it. No-op — plain instant navigation —
+   in browsers that don't yet support cross-document view transitions.
+   ========================================================================== */
+@view-transition {
+  navigation: auto;
+}
+::view-transition-old(root) {
+  animation: page-transition-recede 0.5s cubic-bezier(0.65, 0, 0.35, 1) both;
+}
+::view-transition-new(root) {
+  animation: page-transition-rise 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes page-transition-recede {
+  to { opacity: 0.55; transform: scale(0.98); filter: blur(4px); }
+}
+@keyframes page-transition-rise {
+  from { transform: translateY(100%); filter: blur(24px) saturate(160%); }
+  to { transform: translateY(0); filter: blur(0) saturate(100%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root), ::view-transition-new(root) { animation: none; }
+}
+
+/* ==========================================================================
+   Tokens
+   ========================================================================== */
+:root {
+  --primary-500: #ff6102;
+  --primary-400: #ff9d38;
+  --primary-50: #fff7f2;
+  --gradient-primary: linear-gradient(90deg, var(--primary-500) 0%, var(--primary-400) 100%);
+
+  --danger-500: #dc2626;
+
+  --neutral-900: #171717;
+  --neutral-600: #525252;
+  --neutral-200: #e5e5e5;
+  --neutral-100: #f5f5f5;
+  --gray-100: #e6eaf2;
+  --gray-200: #c3c9d9;
+  --gray-500: #69738c;
+  --gray-600: #475066;
+  --gray-700: #32394d;
+  --white: #ffffff;
+  --black: #000000;
+
+  --text-on-dark: rgba(255, 255, 255, 0.92);
+  --text-black-60: rgba(0, 0, 0, 0.6);
+
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+
+  --radius-sm: 4px;
+  --radius-md: 12px;
+  --radius-lg: 24px;
+
+  --container-width: 1280px;
+  --header-height: 80px;
+}
+
+/* ==========================================================================
+   Reset
+   ========================================================================== */
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-behavior: smooth; overflow-x: hidden; overflow-y: visible; }
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  color: var(--neutral-900);
+  background: var(--white);
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+  overflow-y: visible;
+}
+img { max-width: 100%; display: block; }
+ul { margin: 0; padding: 0; }
+h1, h2, h3, p { margin: 0; }
+h1, h2, h3 { letter-spacing: -0.02em; }
+a { text-decoration: none; color: inherit; }
+button { font-family: inherit; cursor: pointer; }
+input { font-family: inherit; }
+
+/* ==========================================================================
+   Kinetic text (scroll-triggered word reveal)
+   ========================================================================== */
+.kinetic-word {
+  display: inline-block;
+  opacity: 0;
+  /* Tips up from below in 3D, like a split-flap panel flipping into place,
+     with a slight scale and motion-blur for weight. The overshoot easing
+     (spring-like) is what reads as "modern" rather than a flat fade. */
+  transform-origin: 50% 100%;
+  transform: perspective(600px) rotateX(-80deg) translateY(45%) scale(0.9);
+  filter: blur(3px);
+  transition:
+    opacity 0.55s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.85s cubic-bezier(0.34, 1.56, 0.64, 1),
+    filter 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+  transition-delay: calc(var(--i, 0) * 28ms);
+  will-change: opacity, transform, filter;
+}
+.kinetic-text.in-view .kinetic-word {
+  opacity: 1;
+  transform: perspective(600px) rotateX(0deg) translateY(0) scale(1);
+  filter: blur(0);
+}
+/* Titles get the full 3D flip above (default). Sub-headings (h3: card and
+   step titles) and body-level subtitles (p) get their own lighter, quicker
+   variants instead of repeating the same heavy flip everywhere — the mix
+   is what reads as varied/modern rather than one animation copy-pasted
+   across every text element on the page. */
+h3.kinetic-text .kinetic-word {
+  transform: scale(0.82) translateY(8px);
+  filter: blur(2px);
+  transition:
+    opacity 0.45s cubic-bezier(0.34, 1.56, 0.64, 1),
+    transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1),
+    filter 0.4s ease;
+  transition-delay: calc(var(--i, 0) * 26ms);
+}
+h3.kinetic-text.in-view .kinetic-word {
+  transform: scale(1) translateY(0);
+  filter: blur(0);
+}
+p.kinetic-text .kinetic-word {
+  transform: translateY(16px);
+  filter: blur(4px);
+  transition:
+    opacity 0.5s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.6s cubic-bezier(0.22, 1, 0.36, 1),
+    filter 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+  transition-delay: calc(var(--i, 0) * 22ms);
+}
+p.kinetic-text.in-view .kinetic-word {
+  transform: translateY(0);
+  filter: blur(0);
+}
+
+.container {
+  width: 100%;
+  max-width: var(--container-width);
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+@media (min-width: 900px) {
+  .container { padding: 0 48px; }
+}
+
+/* ==========================================================================
+   Buttons
+   ========================================================================== */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 48px;
+  padding: 0 24px;
+  border-radius: var(--radius-md);
+  font-weight: 700;
+  font-size: 16px;
+  line-height: 1.1;
+  white-space: nowrap;
+  border: none;
+  transition: transform 0.15s cubic-bezier(0.23, 1, 0.32, 1), box-shadow 0.15s ease, opacity 0.15s ease;
+}
+@media (hover: hover) and (pointer: fine) {
+  .btn:hover { transform: translateY(-1px); }
+}
+.btn:active { transform: scale(0.97); }
+
+.btn-primary {
+  position: relative;
+  z-index: 1;
+  color: var(--white);
+  height: 40px;
+  padding: 0 20px;
+  font-size: 14px;
+  width: auto;
+  background: var(--primary-500);
+}
+@media (hover: hover) and (pointer: fine) {
+  .btn-primary:hover { box-shadow: 0 8px 20px rgba(255, 97, 2, 0.35); }
+}
+/* Large modifier: the standard bigger size (matches .btn-outline) for CTAs
+   that need more visual weight than the compact header/float buttons. */
+.btn-lg { height: 54px; padding: 0 36px; font-size: 16px; }
+
+.btn-outline {
+  background: transparent;
+  border: 2px solid var(--primary-500);
+  color: var(--primary-500);
+  height: 54px;
+  padding: 0 24px;
+}
+@media (hover: hover) and (pointer: fine) {
+  .btn-outline:hover { background: var(--primary-50); }
+}
+
+.btn-tertiary {
+  background: transparent;
+  border: none;
+  color: var(--primary-500);
+}
+@media (hover: hover) and (pointer: fine) {
+  .btn-tertiary:hover { background: var(--primary-50); }
+}
+
+.btn-center {
+  display: flex;
+  margin: 0 auto;
+  width: fit-content;
+  border-width: 1px;
+  height: 48px;
+}
+
+/* ==========================================================================
+   Header
+   ========================================================================== */
+.site-header {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: var(--header-height);
+  z-index: 100;
+  /* Light "liquid glass" (Apple-style): a heavier blur + saturation boost
+     than a plain frosted panel, with a soft top highlight and a faint
+     shadow underneath to read as a distinct floating layer over any
+     light content scrolled beneath it, not just a flat tint. */
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8), 0 1px 16px rgba(23, 23, 23, 0.06);
+  transition: background 0.35s ease, box-shadow 0.35s ease;
+}
+@media (max-width: 899px) {
+  /* Scrolls away with the page instead of staying pinned to the top. */
+  .site-header { position: static; background: var(--white); box-shadow: none; }
+  /* Internal service pages keep the fixed, translucent header at every
+     width so their full-bleed hero media can start at pixel 0 underneath
+     it, the same treatment used on desktop. */
+  .site-header.site-header--overlay {
+    position: fixed;
+    background: rgba(255, 255, 255, 0.6);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8), 0 1px 16px rgba(23, 23, 23, 0.06);
+  }
+}
+/* Dark "liquid glass" look while the header floats over hero media
+   (huella-digital.html, etc.). Toggled by initServiceHeroHeaderContrast()
+   in main.js based on scroll position over .service-hero, and reverted
+   once the header is over plain page background. Declared after the
+   rules above (same 2-class specificity) so it wins the tie whenever
+   both classes are present, at any width. */
+.site-header.is-over-media {
+  background: rgba(20, 20, 22, 0.4);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.1);
+}
+.site-header.is-over-media .logo img { filter: brightness(0) invert(1); }
+.logo img { transition: filter 0.35s ease; }
+.header-inner {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.logo img { height: 32px; width: auto; }
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+/* ==========================================================================
+   Hero
+   ========================================================================== */
+.hero {
+  position: relative;
+  padding-top: calc(var(--header-height) + 56px);
+  padding-bottom: 64px;
+  overflow: clip;
+}
+.hero-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 56px;
+  align-items: center;
+}
+/* On mobile/tablet the image composition leads, title follows. */
+.hero-visual { order: -1; }
+@media (max-width: 1023px) {
+  .hero { padding-top: calc(var(--header-height) + 24px); }
+  .hero-grid { gap: 24px; }
+}
+@media (max-width: 899px) {
+  /* The header is static (not fixed) here, so its own height already
+     pushes the hero down — no need to add --header-height again. */
+  .hero { padding-top: 24px; }
+}
+/* Tablet: extra breathing room above the hero content. */
+@media (min-width: 640px) and (max-width: 899px) {
+  .hero { padding-top: 64px; }
+}
+@media (min-width: 900px) and (max-width: 1023px) {
+  .hero { padding-top: calc(var(--header-height) + 56px); }
+}
+@media (min-width: 1024px) {
+  .hero-grid { flex-direction: row; align-items: center; gap: 0; }
+  .hero-content { flex: 0 0 596px; max-width: 596px; }
+  .hero-visual { order: 0; }
+  .hero .container { padding-right: 0; }
+}
+
+.hero-content {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 32px;
+  min-width: 0;
+  width: 100%;
+}
+.hero-text { display: flex; flex-direction: column; gap: 16px; }
+.hero-text .hero-eyebrow {
+  margin-bottom: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--primary-500);
+  text-transform: uppercase;
+}
+.hero-text h1 {
+  font-size: clamp(34px, 5vw, 56px);
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--neutral-900);
+}
+@media (max-width: 639px) {
+  .hero-text h1 { font-size: 30px; }
+  .hero-text .hero-eyebrow { font-size: 13px; font-weight: 600; margin-bottom: 2px; }
+}
+/* Hero title phrase swap: a looping vertical ticker (like a promo-bar
+   rotator) — the two phrases share one grid cell clipped by overflow, the
+   outgoing phrase rolls up and out while the incoming one rolls up from
+   below at the same time, repeating forever. Positions are driven by JS
+   inline transforms; this transition is what makes each roll animate. */
+.hero-title-swap { display: grid; overflow: hidden; }
+.hero-title-phrase {
+  grid-area: 1 / 1;
+  transform: translateY(100%);
+  transition: transform 0.9s cubic-bezier(0.65, 0, 0.35, 1);
+  will-change: transform;
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-title-phrase { transition: none; }
+}
+.hero-subtitle {
+  font-size: 22px;
+  line-height: 1.55;
+  color: var(--neutral-900);
+  max-width: 533px;
+}
+@media (max-width: 767px) {
+  .hero-subtitle { font-size: 18px; }
+}
+
+.hero-partners { display: flex; flex-direction: column; gap: 24px; min-width: 0; width: 100%; margin-top: 16px; }
+.eyebrow {
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 1.4px;
+  text-transform: none;
+  color: var(--text-black-60);
+}
+.partner-logos {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+}
+.partner-logos-track {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 48px;
+}
+.partner-logos-set {
+  display: flex;
+  align-items: center;
+  gap: 48px;
+}
+.partner-logos-set[aria-hidden] { display: none; }
+.partner-logos img { height: 28px; width: auto; object-fit: contain; }
+
+/* Mobile-only: turn the logo row into a slow, seamless right-to-left
+   marquee. The track holds two identical sets back to back; animating it
+   to -50% shifts by exactly one set's width, so the loop never visibly
+   resets. */
+@media (max-width: 1023px) {
+  .partner-logos img { height: 28px; }
+}
+@media (max-width: 767px) {
+  .partner-logos {
+    overflow: hidden;
+    width: calc(100% + 48px);
+    margin-left: -24px;
+    margin-right: -24px;
+  }
+  .partner-logos img { height: 32px; }
+  .partner-logos-track {
+    flex-wrap: nowrap;
+    gap: 0;
+    width: max-content;
+    animation: partner-marquee 20s linear infinite;
+    animation-play-state: running !important;
+    will-change: transform;
+    backface-visibility: hidden;
+  }
+  .partner-logos-set {
+    gap: 36px;
+    flex-shrink: 0;
+    padding-right: 36px;
+  }
+  .partner-logos-set[aria-hidden] { display: flex; }
+}
+
+@keyframes partner-marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(var(--marquee-shift, -50%)); }
+}
+
+/* This marquee is deliberately excluded from the reduced-motion guard below:
+   it's a low-intensity, non-flashing decorative loop that must never appear
+   to stop, so it keeps running regardless of that OS preference. */
+
+/* Proportions below are taken directly from the Figma frame (928 x 540
+   composition bounding box: pattern ml86/w218.5/h299.2, photo mt127/w242/h364,
+   mockup ml177/mt40/w750.9/h500.1) — converted to percentages of that box so
+   the exact composition scales, instead of an invented aspect ratio. */
+.hero-visual {
+  position: relative;
+  width: 100%;
+  max-width: 480px;
+  aspect-ratio: 927.9 / 540.1;
+  margin: 0 auto;
+  perspective: 1400px;
+}
+@media (min-width: 1024px) {
+  .hero-visual { flex: 0 0 75.3%; max-width: 928px; margin: 0; }
+}
+.hero-visual-pattern {
+  position: absolute;
+  left: 9.27%;
+  top: 0%;
+  width: 23.55%;
+  height: 55.4%;
+  background-image: url('../assets/icons/line-pattern-fill.svg');
+  background-repeat: no-repeat;
+  background-size: contain;
+  opacity: 0.9;
+  z-index: 0;
+  will-change: transform;
+  transform-style: preserve-3d;
+}
+.hero-photo {
+  position: absolute;
+  left: 0%;
+  top: 23.51%;
+  z-index: 1;
+  width: 26.08%;
+  height: 67.4%;
+  object-fit: cover;
+  border-radius: var(--radius-lg);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.18);
+  transform: scaleX(-1);
+  will-change: transform;
+  transform-style: preserve-3d;
+}
+.hero-mockup {
+  position: absolute;
+  left: 19.07%;
+  top: 7.41%;
+  z-index: 2;
+  width: 80.94%;
+  height: 92.6%;
+  border-radius: var(--radius-md);
+  border: 4px solid var(--neutral-900);
+  overflow: hidden;
+  box-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.25);
+  background: var(--neutral-900);
+  will-change: transform;
+  transform-style: preserve-3d;
+}
+.hero-mockup img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+.decor-box-float {
+  position: absolute;
+  right: -8%;
+  bottom: -32%;
+  width: 160px;
+  z-index: 50;
+  pointer-events: none;
+  animation: decor-box-bob 4.5s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+@media (min-width: 900px) {
+  .decor-box-float { bottom: -22%; }
+}
+.decor-box {
+  display: block;
+  width: 100%;
+  height: auto;
+  will-change: transform, filter;
+}
+@keyframes decor-box-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .decor-box-float { animation: none; }
+}
+@media (max-width: 899px) { .decor-box-float { bottom: -3%; } }
+@media (min-width: 640px) { .decor-box-float { width: 240px; } }
+@media (min-width: 1024px) { .decor-box-float { width: 280px; } }
+@media (max-width: 639px) { .decor-box-float { width: 140px; bottom: -8%; } }
+
+/* Third copy: floats up into the hero's lower-right area instead of down
+   toward the next section — same box/parallax, just anchored from the
+   top of its container (.brand-section, not overflow-clipped) instead
+   of the bottom, so it reads as part of the hero banner above the seam. */
+.decor-box-float--hero {
+  bottom: auto;
+  top: -18%;
+}
+@media (min-width: 900px) {
+  .decor-box-float--hero { top: -30%; }
+}
+@media (max-width: 899px) {
+  .decor-box-float--hero { top: -6%; }
+}
+@media (max-width: 639px) {
+  .decor-box-float--hero { top: -10%; }
+}
+
+/* A second copy of the same floating box, straddling the seam between
+   the solutions gallery and "¿Cómo funciona?" — left side this time so
+   it doesn't collide with the fixed WhatsApp bar at the viewport edge. */
+.decor-box-float--seam {
+  right: auto;
+  left: -8%;
+  bottom: -6%;
+  width: 120px;
+}
+@media (min-width: 900px) {
+  .decor-box-float--seam { bottom: -6%; }
+}
+@media (max-width: 899px) {
+  .decor-box-float--seam { bottom: -6%; }
+}
+@media (min-width: 640px) {
+  .decor-box-float--seam { width: 180px; }
+}
+@media (min-width: 1024px) {
+  .decor-box-float--seam { width: 210px; }
+}
+
+/* ==========================================================================
+   Brand section (why register your brand)
+   ========================================================================== */
+.brand-section {
+  position: relative;
+  background: var(--gradient-primary);
+}
+.brand-section-clip { overflow: clip; padding: 64px 0; }
+.brand-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 40px;
+  align-items: center;
+}
+@media (max-width: 899px) {
+  .brand-content { order: -1; }
+}
+@media (min-width: 900px) {
+  .brand-grid { grid-template-columns: minmax(0, 460px) 1fr; gap: 48px; }
+}
+.brand-image {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  align-self: end;
+  margin-bottom: -68px;
+}
+/* Reaction emojis floating around the photo's head — echo the "what
+   nobody tells you" pain points in the copy beside it. Positioned in
+   percentages of .brand-image so they track the head roughly across
+   breakpoints even as the image itself crops/re-anchors responsively.
+   Selector is `.brand-image .brand-emoji` (not just `.brand-emoji`) so it
+   outweighs the broader `.brand-image img` rule above, which would
+   otherwise stretch these to the photo's own width/reveal transition.
+   Entrance: hidden below their resting spot, then slide up and fade in
+   with a short staggered delay per emoji (a parallax-like, layered
+   arrival instead of popping in together) once .in-view is added by
+   initBrandImageReveal (main.js) — the continuous float animation only
+   picks up once that settle finishes, starting from the exact transform
+   the transition ends on so there's no visual jump between the two.
+   --emoji-scale is written on scroll by initEmojiParallax (main.js) and
+   folded into every transform below via scale(var(...)), so the scroll-
+   driven grow/shrink composes with both the entrance and the float
+   keyframes instead of fighting them for the transform property. */
+.brand-image .brand-emoji {
+  position: absolute;
+  z-index: 1;
+  width: 56px;
+  height: 56px;
+  max-width: none;
+  border-radius: 50%;
+  object-fit: cover;
+  object-position: center;
+  opacity: 0;
+  transform: translateY(32px) scale(var(--emoji-scale, 1));
+  clip-path: none;
+  transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1), transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform;
+}
+.brand-image .brand-emoji--a { top: 8%; left: 9%; transition-delay: 0.2s; }
+.brand-image .brand-emoji--b { top: 9%; right: 6%; transition-delay: 0.45s; }
+.brand-image.in-view .brand-emoji--a {
+  opacity: 1;
+  transform: translateY(0) rotate(-14deg) scale(var(--emoji-scale, 1));
+  animation: brand-emoji-float-a 6s ease-in-out 0.9s infinite;
+}
+.brand-image.in-view .brand-emoji--b {
+  opacity: 1;
+  transform: translateY(0) rotate(14deg) scale(var(--emoji-scale, 1));
+  animation: brand-emoji-float-b 6.5s ease-in-out 1.15s infinite;
+}
+@keyframes brand-emoji-float-a {
+  0%, 100% { transform: translateY(0) rotate(-14deg) scale(var(--emoji-scale, 1)); }
+  50% { transform: translateY(-22px) rotate(-24deg) scale(var(--emoji-scale, 1)); }
+}
+@keyframes brand-emoji-float-b {
+  0%, 100% { transform: translateY(0) rotate(14deg) scale(var(--emoji-scale, 1)); }
+  50% { transform: translateY(-24px) rotate(24deg) scale(var(--emoji-scale, 1)); }
+}
+@media (max-width: 639px) {
+  .brand-image .brand-emoji { width: 40px; height: 40px; }
+  .brand-image .brand-emoji--b { top: 9%; right: 3%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .brand-image .brand-emoji { opacity: 1; transform: none; transition: none; }
+  .brand-image.in-view .brand-emoji--a,
+  .brand-image.in-view .brand-emoji--b { animation: none; transform: none; }
+}
+.brand-image img {
+  max-width: 460px;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+  object-position: bottom;
+  opacity: 0;
+  transform: translateY(56px);
+  clip-path: inset(0 0 100% 0);
+  transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.9s cubic-bezier(0.16, 1, 0.3, 1),
+    clip-path 0.9s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.brand-image.in-view img {
+  opacity: 1;
+  transform: translateY(0);
+  clip-path: inset(0 0 0% 0);
+}
+@media (prefers-reduced-motion: reduce) {
+  .brand-image img { opacity: 1; transform: none; clip-path: none; transition: none; }
+}
+@media (max-width: 639px) {
+  .brand-image img { max-width: 90%; }
+}
+@media (min-width: 640px) and (max-width: 899px) {
+  .brand-image img { max-width: 45%; }
+}
+@media (min-width: 900px) {
+  .brand-image img { max-width: 340px; }
+  /* Bleeds past the section's top padding (added for the reveal/breathe
+     animation) so the larger image reaches closer to the section's edge. */
+  .brand-image { margin-top: -64px; }
+}
+@media (max-width: 1023px) {
+  /* Crop tighter on mobile/tablet: head down to the elbows, no waist/jeans —
+     the original photo is portrait (668x951), so a wide, short box with
+     object-fit: cover + top-anchored position keeps only the top ~45%. */
+  .brand-image img {
+    aspect-ratio: 668 / 428;
+    object-fit: cover;
+    object-position: top;
+  }
+}
+@media (min-width: 640px) and (max-width: 1023px) {
+  /* This crop packs the head into a much shorter box than desktop's full
+     portrait, so the same percentage offsets read as too far away —
+     pull the emojis in tighter around it. */
+  .brand-image .brand-emoji--a { top: 6%; left: 20%; }
+  .brand-image .brand-emoji--b { top: 4%; right: 22%; }
+}
+.brand-content { color: var(--white); max-width: 560px; }
+.brand-content h2 {
+  position: relative;
+  font-size: clamp(26px, 3.5vw, 32px);
+  font-weight: 700;
+  line-height: 1.25;
+  margin-bottom: 24px;
+}
+.brand-content .brand-closing {
+  margin-top: 24px;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+/* Dolores: a plain bullet list of every pain point, always fully visible —
+   no carousel, no scroll-jacking, no autoplay. */
+.dolores-list {
+  list-style: disc;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.dolores-list li {
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--white);
+}
+.dolores-list li::marker { color: rgba(255, 255, 255, 0.55); }
+
+/* Mobile + tablet: center the hero and dolores headings/subtitles. */
+@media (max-width: 1023px) {
+  .hero-content { align-items: center; }
+  .hero-text { align-items: center; text-align: center; width: 100%; }
+  .hero-partners { align-items: center; text-align: center; }
+  .partner-logos { justify-content: center; }
+  .brand-content { text-align: center; margin: 0 auto; }
+  .dolores-list { text-align: left; margin: 0 auto; }
+}
+
+/* ==========================================================================
+   Section heading (shared)
+   ========================================================================== */
+.section-heading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  text-align: center;
+  max-width: 768px;
+  margin: 0 auto 64px;
+}
+.section-heading h2 {
+  font-size: clamp(28px, 4vw, 36px);
+  font-weight: 700;
+  letter-spacing: -0.72px;
+  color: var(--neutral-900);
+}
+.section-heading p {
+  font-size: 20px;
+  line-height: 1.5;
+  color: var(--neutral-600);
+}
+@media (max-width: 767px) {
+  .section-heading p { font-size: 18px; }
+}
+
+/* ==========================================================================
+   Carriers section (transportadoras disponibles)
+   ========================================================================== */
+.carriers-section { padding: 96px 0; }
+.carriers-heading { margin-bottom: 48px; }
+.carriers-heading h2 {
+  font-size: 20px;
+  line-height: 1.5;
+  font-weight: 400;
+  letter-spacing: normal;
+  color: var(--neutral-600);
+}
+.carrier-logos {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 40px;
+}
+.carrier-logos img {
+  height: 64px;
+  width: 64px;
+  object-fit: cover;
+  border-radius: 50%;
+  box-shadow: 0 1px 2px rgba(23, 23, 23, 0.06), 0 4px 12px rgba(23, 23, 23, 0.08);
+  opacity: 0;
+  transform: translateY(12px) scale(0.95);
+  transition: opacity 500ms cubic-bezier(0.23, 1, 0.32, 1), transform 500ms cubic-bezier(0.23, 1, 0.32, 1);
+  transition-delay: calc(var(--logo-i, 0) * 60ms);
+}
+.carriers-section.in-view .carrier-logos img {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+@media (max-width: 767px) {
+  .carrier-logos { gap: 24px; }
+  .carrier-logos img { height: 52px; width: 52px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .carrier-logos img { transition: none; }
+}
+
+/* ==========================================================================
+   Solutions section ("Soluciones tecnologicas" card gallery)
+   ========================================================================== */
+.solutions-section {
+  position: relative;
+  background: var(--primary-50);
+  padding: 120px 0 80px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+@media (max-width: 1023px) {
+  .solutions-section { padding-top: 64px; }
+}
+.solutions-heading-wrap { padding: 0 32px; }
+.solutions-heading { margin-bottom: 0; }
+.solutions-heading h2 {
+  font-size: clamp(28px, 4vw, 36px);
+  font-weight: 700;
+  letter-spacing: -0.72px;
+}
+.solutions-heading p { color: var(--gray-500); }
+@media (min-width: 900px) {
+  .solutions-heading p { white-space: nowrap; }
+}
+.solutions-body {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.solutions-scroll {
+  display: flex;
+  gap: 32px;
+  overflow-x: auto;
+  /* overflow-x: auto forces overflow-y to auto too (browsers won't let one
+     axis stay visible while the other scrolls), which would clip the active
+     card's lifted scale at the row's own top/bottom bounds — this padding
+     gives it room. The active card has no box-shadow specifically so it
+     can't leave a hard-edged cut shadow here. */
+  padding: 24px 0 32px;
+  -webkit-overflow-scrolling: touch;
+  /* Default cursor stays normal; only the active drag (below) shows a hand,
+     matching how carousels usually signal "grabbed", not "grabbable". */
+  /* Without this, the browser's scroll-anchoring can silently shift this
+     row's scrollLeft as images finish loading and it reflows, so the first
+     card ends up scrolled partly off-screen by the time everything settles. */
+  overflow-anchor: none;
+  /* The prev/next buttons and dots below are the visible navigation UI;
+     the native scrollbar is redundant on top of them. */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.solutions-scroll.is-dragging {
+  cursor: grabbing;
+  user-select: none;
+}
+.solutions-scroll::-webkit-scrollbar { display: none; }
+
+/* A real flex item, not padding, insets the first card from the left edge —
+   padding-left on a flex scroll container isn't reliably honored as leading
+   space in every engine. margin-right cancels the row's own gap so the
+   total lead-in equals exactly this spacer's width. (scroll-snap was
+   removed from this gallery: it kept re-snapping scrollLeft to this
+   spacer's neighbor, undoing the inset it's here to create.) */
+.solutions-scroll-spacer {
+  flex: 0 0 32px;
+  width: 32px;
+  margin-right: -32px;
+}
+@media (min-width: 900px) {
+  /* Matches the container's own edge (padding + the centering math past
+     --container-width) so the first card lines up with the header logo. */
+  .solutions-scroll-spacer {
+    flex-basis: max(48px, calc((100vw - var(--container-width)) / 2 + 48px));
+    width: max(48px, calc((100vw - var(--container-width)) / 2 + 48px));
+    margin-right: -32px;
+  }
+}
+/* Trailing spacer: same idea as the leading one, mirrored — cancels the
+   row's gap on its OWN leading side so the last card ends up inset by
+   exactly this spacer's width, aligned with the header's Regístrate button. */
+.solutions-scroll-spacer--end {
+  margin-right: 0;
+  margin-left: -32px;
+}
+
+.solution-card[hidden] { display: none; }
+.solution-card {
+  position: relative;
+  cursor: pointer;
+  flex: 0 0 auto;
+  width: 260px;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  background: rgba(255, 255, 255, 0.55);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: 20px;
+  padding-bottom: 28px;
+  /* Resting glass shadow; hover/active deepen it (see below). */
+  box-shadow: 0 8px 30px rgba(15, 34, 58, 0.06);
+  /* Entrance animation: sweeps in from the right in sequence, staggered per
+     card, the first time the gallery scrolls into view (see
+     initSolutionCardsReveal in main.js) — on every device, so mobile gets
+     the same fluid cascade as desktop instead of a plain fade-up. The
+     active-card focus state (below) reuses the same transform property,
+     composed as translateX() scale() so neither one clobbers the other. */
+  opacity: 0;
+  transform: translateX(36px) scale(1);
+  transition:
+    opacity 0.65s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.65s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 0.3s ease,
+    background 0.25s ease;
+  transition-delay: calc(var(--card-i, 0) * 110ms), calc(var(--card-i, 0) * 110ms), 0s, 0s;
+}
+.solutions-scroll.in-view .solution-card {
+  opacity: 1;
+  transform: translateX(0) scale(1);
+}
+/* Active-card focus: whichever card sits closest to the gallery's visible
+   center (tracked in initSolutionsGallery) is lifted forward; its neighbors
+   recede slightly, so the row reads as "one thing in focus" instead of a
+   flat strip — the new pattern this redesign is built around. */
+.solutions-scroll.in-view .solution-card.is-active {
+  transform: translateX(0) scale(1.04);
+}
+@media (hover: hover) and (pointer: fine) {
+  .solution-card:hover {
+    background: var(--white);
+    box-shadow: 0 5px 15px rgba(15, 34, 58, 0.12);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .solution-card { opacity: 1; transform: none; transition: box-shadow 0.25s ease; }
+  .solutions-scroll.in-view .solution-card.is-active { transform: none; }
+}
+@media (min-width: 900px) {
+  .solution-card { width: 300px; }
+}
+@media (max-width: 899px) {
+  /* Solid white on mobile/tablet — the frosted glass tint reads as
+     translucent-grey against these smaller, denser cards. */
+  .solution-card {
+    background: var(--white);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+.solution-card-image {
+  position: relative;
+  width: 100%;
+  height: 180px;
+  border-radius: 20px 20px 0 0;
+  overflow: hidden;
+}
+@media (min-width: 900px) {
+  .solution-card-image { height: 200px; }
+}
+.solution-card-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@media (hover: hover) and (pointer: fine) {
+  .solution-card:hover .solution-card-image img { transform: scale(1.06); }
+}
+.solution-card-badge {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  padding: 6px 14px;
+  background: rgba(255, 255, 255, 0.75);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  backdrop-filter: blur(12px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--primary-500);
+  box-shadow: 0 4px 12px rgba(15, 34, 58, 0.1);
+}
+.solution-card-recommended {
+  position: absolute;
+  left: 16px;
+  top: 180px;
+  padding: 6px 14px;
+  background: var(--primary-500);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--white);
+  box-shadow: 0 4px 12px rgba(255, 97, 2, 0.3);
+  opacity: 0;
+  transform: translateY(-50%) scale(0.9);
+  transition: opacity 300ms cubic-bezier(0.23, 1, 0.32, 1), transform 300ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+.solution-card-recommended.is-visible { opacity: 1; transform: translateY(-50%) scale(1); }
+@media (min-width: 900px) {
+  .solution-card-recommended { top: 200px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .solution-card-recommended { transition: none; }
+}
+/* Kinetic word-reveal inside the pill, replayed on a loop (see
+   startPillKinetic in main.js). Uses a keyframe animation rather than a
+   transition — restarting a transition via the classic remove/reflow/add
+   trick is unreliable (no guaranteed style flush in between), whereas
+   toggling a class that applies a fresh animation-name restarts cleanly
+   every time. */
+@keyframes kineticWordPop {
+  from { opacity: 0; transform: translateY(8px); filter: blur(4px); }
+  to { opacity: 1; transform: translateY(0); filter: blur(0); }
+}
+.solution-card-recommended.kinetic-text .kinetic-word {
+  display: inline-block;
+  opacity: 0;
+  transform: translateY(8px);
+  filter: blur(4px);
+}
+.solution-card-recommended.kinetic-text.kinetic-playing .kinetic-word {
+  animation: kineticWordPop 0.65s cubic-bezier(0.22, 1, 0.36, 1) calc(var(--i, 0) * 110ms) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .solution-card-recommended.kinetic-text .kinetic-word { opacity: 1; transform: none; filter: none; }
+  .solution-card-recommended.kinetic-text.kinetic-playing .kinetic-word { animation: none; }
+}
+.solution-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 0 24px;
+  /* Fills whatever height the card stretched to (cards in the row are all
+     as tall as the tallest one), so the link below can anchor to the
+     bottom regardless of how much title/description text precedes it. */
+  flex: 1;
+}
+.solution-card-body h3 {
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.2;
+  color: #0e111a;
+}
+.solution-card-desc {
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--gray-500);
+}
+.solution-card-cta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  /* Pushes itself to the bottom of the (now flex:1) body, so every card's
+     CTA row lines up regardless of title/description length. */
+  margin-top: auto;
+}
+.solution-card-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--primary-500);
+}
+.solution-card-link-arrow {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  transition: transform 0.2s cubic-bezier(0.23, 1, 0.32, 1);
+}
+@media (hover: hover) and (pointer: fine) {
+  .solution-card:hover .solution-card-link-arrow { transform: translateX(4px); }
+}
+/* Desktop: the note is a plain, always-visible line under the CTA. */
+.solution-card-note {
+  flex-basis: 100%;
+  order: 3;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--gray-500);
+}
+.solution-card-info { display: none; }
+
+/* Mobile/tablet: swap the always-on note for a tap-to-reveal tooltip off a
+   small info icon, so cards with a footnote aren't taller than the rest. */
+@media (max-width: 899px) {
+  .solution-card-cta { position: relative; }
+  .solution-card-info {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    flex-shrink: 0;
+    margin-left: auto;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: none;
+    color: var(--primary-500);
+    cursor: pointer;
+    transition: opacity 0.15s ease;
+  }
+  .solution-card-info svg { width: 20px; height: 20px; }
+  .solution-card-info[aria-expanded="true"] { opacity: 0.7; }
+  .solution-card-note {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: calc(100% + 10px);
+    margin: 0;
+    padding: 10px 14px;
+    background: var(--neutral-900);
+    color: var(--white);
+    font-size: 12px;
+    line-height: 1.4;
+    border-radius: 10px;
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+    opacity: 0;
+    transform: translateY(6px) scale(0.97);
+    transform-origin: bottom left;
+    pointer-events: none;
+    transition: opacity 0.18s cubic-bezier(0.23, 1, 0.32, 1), transform 0.2s cubic-bezier(0.23, 1, 0.32, 1);
+    z-index: 5;
+  }
+  .solution-card-note::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 16px;
+    border: 6px solid transparent;
+    border-top-color: var(--neutral-900);
+  }
+  .solution-card-note.is-open {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    pointer-events: auto;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .solution-card-note { transition: opacity 0.15s ease; }
+}
+
+.solutions-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 32px;
+}
+@media (min-width: 900px) {
+  .solutions-footer { padding: 0 48px; }
+}
+
+.solutions-dots {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+.solutions-dot {
+  position: relative;
+  width: 8px;
+  height: 8px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 97, 2, 0.25);
+  cursor: pointer;
+  transition: background 0.25s ease, width 0.25s ease;
+}
+.solutions-dot::before {
+  /* enlarges the clickable/tappable area without affecting the visible dot */
+  content: '';
+  position: absolute;
+  inset: -8px;
+}
+@media (hover: hover) and (pointer: fine) {
+  .solutions-dot:hover { background: rgba(255, 97, 2, 0.5); }
+}
+.solutions-dot:focus-visible { outline: 2px solid var(--primary-500); outline-offset: 3px; }
+.solutions-dot.is-active { background: var(--primary-500); width: 22px; border-radius: 4px; }
+
+/* ==========================================================================
+   Email CTA
+   ========================================================================== */
+.email-cta {
+  position: relative;
+  overflow: clip;
+  background: linear-gradient(100deg, var(--primary-500) 35%, var(--primary-400) 110%);
+  padding: 56px 0;
+  /* Offsets the native anchor jump from "Agendar una demo" so the fixed
+     header doesn't cover the title when the section lands at the top. */
+  scroll-margin-top: var(--header-height);
+}
+.email-cta-orbs { position: absolute; inset: 0; z-index: 0; }
+.cta-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(70px);
+  will-change: transform;
+}
+.cta-orb--a {
+  width: 420px;
+  height: 420px;
+  top: -140px;
+  left: -100px;
+  background: var(--primary-400);
+  opacity: 0.55;
+  animation: cta-orb-drift-a 24s ease-in-out infinite alternate;
+}
+.cta-orb--b {
+  width: 320px;
+  height: 320px;
+  bottom: -130px;
+  right: 8%;
+  background: #ffe0c2;
+  opacity: 0.45;
+  animation: cta-orb-drift-b 28s ease-in-out infinite alternate;
+}
+.cta-orb--c {
+  width: 260px;
+  height: 260px;
+  top: 15%;
+  right: -90px;
+  background: var(--white);
+  opacity: 0.2;
+  animation: cta-orb-drift-c 20s ease-in-out infinite alternate;
+}
+/* Mobile: the gradient's lighter end (--primary-400) plus the pale orbs
+   wash out the white title text. Darken the base and dial back the
+   lightening orbs so the text keeps enough contrast. */
+@media (max-width: 899px) {
+  .email-cta { background: linear-gradient(165deg, #e0550a 0%, var(--primary-500) 65%, var(--primary-400) 140%); }
+  .cta-orb--b { opacity: 0.25; }
+  .cta-orb--c { opacity: 0.1; }
+}
+@keyframes cta-orb-drift-a {
+  0% { transform: translate(0, 0) scale(1); }
+  100% { transform: translate(70px, 50px) scale(1.15); }
+}
+@keyframes cta-orb-drift-b {
+  0% { transform: translate(0, 0) scale(1); }
+  100% { transform: translate(-60px, -40px) scale(1.1); }
+}
+@keyframes cta-orb-drift-c {
+  0% { transform: translate(0, 0) scale(1); }
+  100% { transform: translate(-40px, 60px) scale(0.9); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cta-orb { animation: none; }
+}
+.cta-emoji {
+  position: absolute;
+  z-index: 1;
+  border-radius: 50%;
+  filter: drop-shadow(0 10px 20px rgba(23, 23, 23, 0.2));
+  will-change: transform;
+}
+/* Anchored to the card itself (.plan-finder, its nearest positioned
+   ancestor) instead of the section, so it sits right at the card's
+   top-right corner regardless of viewport width. */
+.cta-emoji--a { top: 10px; right: -20px; animation: cta-emoji-float-a-right 6s ease-in-out infinite; }
+.cta-emoji--e { top: -6px; right: 44px; animation: cta-emoji-float-left 6.5s ease-in-out infinite; }
+@keyframes cta-emoji-float-a-right {
+  0%, 100% { transform: translateY(0) rotate(8deg); }
+  50% { transform: translateY(-14px) rotate(16deg); }
+}
+@keyframes cta-emoji-float-left {
+  0%, 100% { transform: translateY(0) rotate(-8deg); }
+  50% { transform: translateY(-12px) rotate(-16deg); }
+}
+@media (max-width: 899px) {
+  .cta-emoji { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cta-emoji { animation: none; }
+}
+.email-cta-inner {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 40px;
+  text-align: center;
+}
+@media (min-width: 900px) {
+  .email-cta-inner { gap: 48px; }
+}
+.email-cta h2 {
+  font-size: clamp(24px, 4vw, 30px);
+  font-weight: 700;
+  line-height: 1.4;
+  color: var(--white);
+  max-width: 521px;
+}
+@media (min-width: 900px) {
+  .email-cta h2 { max-width: 700px; }
+}
+/* Plan finder (inspired by higgsfield.ai/es/pricing "Encuentra el mejor plan
+   para ti": numbered step cards + chip selection + a live recommendation
+   panel), wrapping the registro form (Figma: Brands | Product-Market Fit,
+   node 520:25929 fields reused inside step 2). */
+.plan-finder { position: relative; width: 100%; max-width: 560px; }
+.plan-finder-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  background: var(--white);
+  border: 1px solid var(--gray-100);
+  border-radius: var(--radius-md);
+  box-shadow: 0 16px 48px rgba(23, 23, 23, 0.16);
+  padding: 32px;
+  text-align: left;
+}
+@media (max-width: 479px) {
+  .plan-finder-grid { padding: 24px; }
+}
+@media (min-width: 900px) {
+  .plan-finder-grid { padding: 40px; }
+}
+
+.pf-steps { display: flex; flex-direction: column; position: relative; }
+.pf-step { display: flex; flex-direction: column; gap: 16px; padding: 24px 0; }
+.pf-step:first-child { padding-top: 0; }
+.pf-step:last-child { padding-bottom: 0; }
+.pf-step--collapsible { border-top: 1px solid var(--neutral-200); }
+/* A collapsible step (head included) stays fully collapsed until the
+   previous step is complete (see updateStepStates in main.js), then opens
+   with a modern height+fade reveal instead of just appearing. */
+.pf-step--collapsible {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 0.5s cubic-bezier(0.65, 0, 0.35, 1),
+    padding 0.5s cubic-bezier(0.65, 0, 0.35, 1),
+    border-color 0.3s ease;
+}
+.pf-step-collapse {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 0;
+  overflow: hidden;
+  opacity: 1;
+  transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1) 0.15s;
+}
+.pf-step.is-locked {
+  grid-template-rows: 0fr;
+  padding-top: 0;
+  padding-bottom: 0;
+  border-top-color: transparent;
+}
+.pf-step.is-locked .pf-step-collapse {
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pf-step--collapsible { transition: none; }
+  .pf-step-collapse { transition: none; }
+}
+.pf-step-head { display: flex; align-items: flex-end; gap: 20px; }
+.pf-step-avatar-wrap { position: relative; flex-shrink: 0; }
+.pf-step-avatar { display: block; width: 80px; height: 80px; border-radius: 50%; }
+@media (max-width: 639px) {
+  .pf-step-avatar { width: 48px; height: 48px; }
+}
+.pf-step-avatar-tooltip {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 50%;
+  width: max-content;
+  max-width: 150px;
+  text-align: center;
+  line-height: 1.35;
+  background: var(--white);
+  color: var(--gray-700);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 8px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--gray-100);
+  box-shadow: 0 6px 16px rgba(23, 23, 23, 0.15);
+  /* Hidden until initAvatarTooltipReveal (main.js) reveals it, 1s after
+     the registro section scrolls into view — grows from the arrow tip
+     pointing at the avatar below, instead of just fading in place. */
+  transform-origin: center bottom;
+  transform: translateX(-50%) scale(0.9) translateY(4px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 280ms cubic-bezier(0.23, 1, 0.32, 1), transform 280ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+.pf-step-avatar-tooltip.in-view {
+  opacity: 1;
+  transform: translateX(-50%) scale(1) translateY(0);
+}
+@media (prefers-reduced-motion: reduce) {
+  .pf-step-avatar-tooltip { transition: none; }
+}
+.pf-step-avatar-tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  width: 10px;
+  height: 10px;
+  margin-top: -6px;
+  background: var(--white);
+  border-right: 1px solid var(--gray-100);
+  border-bottom: 1px solid var(--gray-100);
+  transform: translateX(-50%) rotate(45deg);
+}
+@media (max-width: 639px) {
+  /* Centered-above positioning pushes this off the left edge of a narrow
+     viewport (the avatar sits close to the card's own left edge here) —
+     anchor to the avatar's left edge instead. */
+  .pf-step-avatar-tooltip { left: 0; transform: scale(0.9) translateY(4px); }
+  .pf-step-avatar-tooltip.in-view { transform: scale(1) translateY(0); }
+  .pf-step-avatar-tooltip::after { left: 24px; transform: rotate(45deg); }
+}
+.pf-step-copy h3 { font-size: 16px; font-weight: 700; color: var(--gray-700); }
+.pf-step-copy p { font-size: 13px; color: var(--gray-600); margin-top: 2px; }
+
+.pf-chip-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+@media (max-width: 479px) {
+  .pf-chip-grid { grid-template-columns: 1fr; }
+}
+.pf-chip:last-child:nth-child(odd) { grid-column: 1 / -1; }
+.pf-chip {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  height: 44px;
+  padding: 0 14px;
+  background: var(--white);
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--gray-600);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+@media (hover: hover) and (pointer: fine) {
+  .pf-chip:hover { border-color: var(--primary-500); }
+}
+.pf-chip.is-selected {
+  background: var(--primary-50);
+  border-color: var(--primary-500);
+  color: var(--primary-500);
+}
+.pf-chip:active { transform: scale(0.97); }
+.pf-chip-dot {
+  position: relative;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid var(--gray-200);
+  background: var(--white);
+  color: var(--white);
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.pf-chip-check { width: 10px; height: 10px; overflow: visible; }
+.pf-chip-check path {
+  stroke-dasharray: 16;
+  stroke-dashoffset: 16;
+  transition: stroke-dashoffset 0.25s cubic-bezier(0.23, 1, 0.32, 1);
+}
+.pf-chip.is-selected .pf-chip-dot { border-color: var(--primary-500); background: var(--primary-500); }
+.pf-chip.is-selected .pf-chip-check path { stroke-dashoffset: 0; }
+@media (prefers-reduced-motion: reduce) {
+  .pf-chip-check path { transition: none; }
+}
+
+.pf-fields { display: flex; flex-direction: column; gap: 16px; }
+
+.pf-step .register-submit { margin-top: 4px; }
+.pf-summary-note { font-size: 12px; color: var(--gray-600); text-align: center; }
+@media (min-width: 900px) {
+  .pf-summary-note { text-align: left; }
+}
+
+.register-field {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+.register-field-label { font-size: 14px; color: var(--gray-600); }
+.register-field.has-error input { border-color: var(--danger-500); box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12); }
+/* Success state: a filled-in, valid field gets a firmer weight and a
+   checkmark instead of staying visually identical to an empty one —
+   confirms the input was understood without waiting for form submission. */
+.register-field.is-valid input {
+  border-color: #22c55e;
+  font-weight: 500;
+  padding-right: 40px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Ccircle cx='10' cy='10' r='10' fill='%2322c55e'/%3E%3Cpath d='M6 10.3l2.4 2.4L14.2 7' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 18px 18px;
+}
+.register-field-tooltip[hidden] { display: none; }
+.register-field-tooltip {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 4;
+  max-width: 100%;
+  padding: 8px 12px;
+  background: var(--danger-500);
+  color: var(--white);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+  border-radius: var(--radius-sm, 6px);
+  box-shadow: 0 6px 16px rgba(220, 38, 38, 0.25);
+  animation: registerTooltipIn 140ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+.register-field-tooltip::before {
+  content: '';
+  position: absolute;
+  top: -4px;
+  left: 14px;
+  width: 8px;
+  height: 8px;
+  background: inherit;
+  transform: rotate(45deg);
+}
+@keyframes registerTooltipIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.register-field input {
+  height: 48px;
+  padding: 8px 12px;
+  width: 100%;
+  background: var(--white);
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  outline: none;
+  /* 16px avoids iOS Safari's automatic zoom-on-focus for text inputs. */
+  font-size: 16px;
+  color: var(--gray-700);
+  transition: border-color 0.15s ease;
+}
+.register-field input::placeholder { color: var(--gray-500); opacity: 0.6; }
+.register-field input:focus { border-color: var(--primary-500); box-shadow: 0 0 0 3px rgba(255, 97, 2, 0.12); }
+.register-field-helper { font-size: 12px; color: var(--gray-600); }
+
+/* Intro step (step 0, "¿Hola, cómo te llamas?"): the Continuar button
+   sits inside the input itself instead of stacking below it. */
+.intro-name-combo { position: relative; }
+.intro-name-combo input { padding-right: 128px; }
+.intro-name-combo input.is-filled { font-weight: 500; }
+.intro-name-continue-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  bottom: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 16px;
+  border: none;
+  border-radius: 6px;
+  background: var(--primary-500);
+  color: var(--white);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: transform 0.15s cubic-bezier(0.23, 1, 0.32, 1), box-shadow 0.2s ease;
+}
+.intro-name-continue-arrow {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  animation: intro-continue-arrow-nudge 1.6s ease-in-out infinite;
+}
+@keyframes intro-continue-arrow-nudge {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(4px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .intro-name-continue-arrow { animation: none; }
+}
+.intro-name-continue-btn:active { transform: scale(0.96); }
+@media (hover: hover) and (pointer: fine) {
+  .intro-name-continue-btn:hover { box-shadow: 0 6px 16px rgba(255, 97, 2, 0.3); }
+}
+@media (max-width: 359px) {
+  .intro-name-combo input { padding-right: 12px; }
+  .intro-name-continue-btn { position: static; width: 100%; height: 40px; margin-top: 8px; }
+}
+@media (min-width: 768px) {
+  .intro-name-combo input { padding-right: 152px; }
+  .intro-name-continue-btn { padding: 0 28px; }
+}
+
+.register-phone-row { display: flex; gap: 8px; width: 100%; }
+.register-phone-flag {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  height: 48px;
+  padding: 8px 12px;
+  background: var(--white);
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  font-size: 14px;
+  color: var(--gray-600);
+}
+.register-phone-flag img { width: 24px; height: 24px; border-radius: 4px; }
+.register-phone-row input { flex: 1; min-width: 0; }
+
+.register-checkbox {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  cursor: pointer;
+}
+.register-checkbox-input {
+  position: absolute;
+  width: 1px; height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+.register-checkbox-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  margin-top: 1px;
+  border: 2px solid var(--gray-200);
+  border-radius: 4px;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.register-checkbox-box img { width: 12px; height: 12px; opacity: 0; transition: opacity 0.1s ease; }
+.register-checkbox-input:checked ~ .register-checkbox-box {
+  background: var(--primary-500);
+  border-color: var(--primary-500);
+}
+.register-checkbox-input:checked ~ .register-checkbox-box img { opacity: 1; }
+.register-checkbox-input:focus-visible ~ .register-checkbox-box { outline: 2px solid var(--primary-500); outline-offset: 2px; }
+.register-checkbox-label { font-size: 14px; line-height: 1.5; color: var(--gray-700); }
+.register-checkbox-link { color: var(--primary-500); text-decoration: underline; }
+
+.register-submit {
+  width: 100%;
+  background: var(--primary-500);
+  color: var(--white);
+  font-size: 16px;
+  border-radius: 8px;
+}
+@media (hover: hover) and (pointer: fine) {
+  .register-submit:hover { box-shadow: 0 8px 20px rgba(255, 97, 2, 0.35); }
+}
+
+/* ==========================================================================
+   FAQ
+   ========================================================================== */
+.faq-section { padding: 96px 0; }
+.faq-list {
+  display: flex;
+  flex-direction: column;
+  max-width: 768px;
+  margin: 0 auto;
+}
+.faq-item { border-top: 1px solid var(--neutral-200); padding: 24px 0; }
+.faq-item:first-child { border-top: none; padding-top: 0; }
+.faq-question {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  background: none;
+  border: none;
+  padding: 0;
+  text-align: left;
+}
+.faq-question span {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--neutral-900);
+  line-height: 1.55;
+}
+.faq-icon { flex-shrink: 0; width: 24px; height: 24px; margin-top: 2px; }
+.faq-answer {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition: grid-template-rows 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
+}
+.faq-item.is-open .faq-answer { grid-template-rows: 1fr; opacity: 1; }
+.faq-answer > p {
+  overflow: hidden;
+  padding-top: 16px;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--neutral-600);
+  transform: translateY(-6px);
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.faq-item.is-open .faq-answer > p { transform: translateY(0); }
+@media (prefers-reduced-motion: reduce) {
+  .faq-answer { transition: opacity 0.15s ease; }
+  .faq-answer > p { transform: none; transition: none; }
+}
+
+/* ==========================================================================
+   WhatsApp floating button
+   ========================================================================== */
+.whatsapp-float {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  width: 56px;
+  height: 56px;
+  z-index: 200;
+  opacity: 0;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  transform: translateY(16px) scale(0.9);
+  transition: opacity 0.35s cubic-bezier(0.23, 1, 0.32, 1),
+    transform 0.55s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+/* Below 900px this becomes the full "Header mobile" Figma component: a
+   floating glass pill with the logo, a WhatsApp shortcut and the CTA.
+   Desktop keeps the plain circular WhatsApp button. */
+.mobile-float-logo,
+.mobile-float-cta {
+  display: none;
+}
+.mobile-float-whatsapp {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+@media (max-width: 899px) {
+  .whatsapp-float {
+    left: 16px;
+    right: 16px;
+    bottom: 16px;
+    width: auto;
+    height: auto;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 20px;
+    border-radius: 999px;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.35));
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    box-shadow:
+      0 8px 24px rgba(0, 0, 0, 0.1),
+      0 1px 2px rgba(0, 0, 0, 0.05),
+      inset 0 1px 0 rgba(255, 255, 255, 0.8);
+    /* Enters sliding down from above; a separate exit state (below) is
+       used when hiding again so it always retreats downward. */
+    transform: translateY(-24px) scale(0.96);
+  }
+  .whatsapp-float.is-hidden-below {
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(48px) scale(0.96);
+    transition: opacity 0.3s cubic-bezier(0.4, 0, 1, 1),
+      transform 0.4s cubic-bezier(0.4, 0, 1, 1);
+  }
+  .whatsapp-float.no-transition { transition: none !important; }
+  .mobile-float-logo {
+    display: block;
+    flex-shrink: 0;
+  }
+  .mobile-float-logo img {
+    display: block;
+    height: 28px;
+    width: auto;
+    transition: filter 0.12s ease-out;
+  }
+  .whatsapp-float.on-dark .mobile-float-logo img {
+    filter: brightness(0) invert(1);
+  }
+  .mobile-float-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .mobile-float-whatsapp {
+    width: 36px;
+    height: 36px;
+    flex-shrink: 0;
+  }
+  .mobile-float-cta {
+    display: inline-flex;
+    height: 40px;
+    padding: 0 14px;
+    font-size: 13px;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+}
+.whatsapp-float.is-visible {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0) scale(1);
+}
+@media (min-width: 900px) {
+  /* Aligns with the header's right edge: the container caps at
+     --container-width and centers, so past that width its padding no
+     longer sits flush with the viewport edge — this mirrors that math. */
+  .whatsapp-float {
+    right: max(48px, calc((100vw - var(--container-width)) / 2 + 48px));
+  }
+}
+@media (hover: hover) and (pointer: fine) {
+  .whatsapp-float:hover {
+    transform: scale(1.06);
+    transition: transform 0.15s cubic-bezier(0.23, 1, 0.32, 1);
+  }
+}
+.whatsapp-float:active {
+  transform: scale(0.93);
+  transition: transform 0.1s cubic-bezier(0.23, 1, 0.32, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .whatsapp-float {
+    transform: none;
+    transition: opacity 0.2s ease;
+  }
+  .whatsapp-float.is-visible { transform: none; }
+  .whatsapp-float.is-hidden-below { transform: none; }
+}
+
+/* ==========================================================================
+   Confirm modal (shown after a successful registro submission)
+   ========================================================================== */
+body.modal-open { overflow: hidden; }
+
+.confirm-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  visibility: hidden;
+  pointer-events: none;
+  transition: visibility 220ms;
+}
+.confirm-modal.is-open { visibility: visible; pointer-events: auto; }
+.confirm-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(23, 23, 23, 0.5);
+  backdrop-filter: blur(4px);
+  opacity: 0;
+  transition: opacity 200ms ease;
+}
+.confirm-modal.is-open .confirm-modal-backdrop { opacity: 1; }
+.confirm-modal-dialog {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 420px;
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  background: var(--white);
+  border-radius: var(--radius-lg);
+  padding: 56px 32px 48px;
+  text-align: center;
+  box-shadow: 0 24px 60px rgba(23, 23, 23, 0.2);
+  transform: scale(0.95) translateY(8px);
+  opacity: 0;
+  transition: transform 220ms cubic-bezier(0.23, 1, 0.32, 1), opacity 220ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+.confirm-modal.is-open .confirm-modal-dialog { transform: scale(1) translateY(0); opacity: 1; }
+.confirm-modal-handle {
+  display: none;
+  width: 36px;
+  height: 4px;
+  margin: 0 auto 16px;
+  border-radius: 999px;
+  background: var(--neutral-200);
+}
+/* Below tablet: the modal docks to the bottom edge as a sheet instead of
+   a centered dialog — the mobile-conventional way to present this much
+   content without feeling like a full takeover. */
+@media (max-width: 767px) {
+  .confirm-modal { align-items: flex-end; padding: 0; transition-duration: 320ms; }
+  .confirm-modal-dialog {
+    max-width: 100%;
+    max-height: 85vh;
+    border-radius: 20px 20px 0 0;
+    padding-top: 12px;
+    transform: translateY(100%);
+    transition: transform 320ms cubic-bezier(0.32, 0.72, 0, 1), opacity 200ms ease-out;
+  }
+  .confirm-modal.is-open .confirm-modal-dialog { transform: translateY(0); }
+  .confirm-modal-handle { display: block; }
+  .confirm-modal-close { top: 20px; }
+}
+@media (min-width: 768px) and (max-width: 1023px) {
+  .confirm-modal-dialog { max-width: 340px; }
+}
+.confirm-modal-close {
+  position: absolute;
+  top: 24px;
+  right: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: var(--neutral-100);
+  color: var(--gray-600);
+  transition: transform 160ms ease-out, background 160ms ease-out;
+}
+.confirm-modal-close svg { width: 16px; height: 16px; }
+@media (hover: hover) and (pointer: fine) {
+  .confirm-modal-close:hover { background: var(--neutral-200); }
+}
+.confirm-modal-close:active { transform: scale(0.9); }
+.confirm-modal-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 20px;
+}
+.confirm-modal-icon img { width: 112px; height: 112px; object-fit: contain; }
+.confirm-modal-dialog h3 {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.44px;
+  color: var(--neutral-900);
+}
+.confirm-modal-subtitle {
+  margin-top: 8px;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--gray-500);
+}
+.confirm-modal-subtitle--recommend { margin-top: 24px; }
+.confirm-modal-subtitle--strong { font-size: 17px; font-weight: 500; }
+.confirm-modal-btn { width: 88%; height: 54px; margin-top: 24px; }
+.confirm-modal-btn--secondary { border-radius: 8px; margin-top: 12px; }
+.confirm-modal-btn--secondary svg { width: 18px; height: 18px; flex-shrink: 0; }
+#confirm-modal-brochure { gap: 12px; }
+.confirm-modal-btn--secondary[hidden] { display: none; }
+
+/* Smaller scale on mobile and tablet: less vertical room to work with
+   than the centered, full-size desktop dialog. */
+@media (max-width: 1023px) {
+  .confirm-modal-icon { margin: 0 auto 16px; }
+  .confirm-modal-icon img { width: 80px; height: 80px; }
+  .confirm-modal-dialog h3 { font-size: 19px; letter-spacing: -0.38px; }
+  .confirm-modal-subtitle { margin-top: 6px; font-size: 13px; }
+  .confirm-modal-subtitle--recommend { margin-top: 18px; }
+  .confirm-modal-subtitle--strong { font-size: 14px; }
+  .confirm-modal-btn { height: 46px; margin-top: 18px; font-size: 14px; }
+  .confirm-modal-btn--secondary { margin-top: 10px; }
+  .confirm-modal-btn--secondary svg { width: 16px; height: 16px; }
+  #confirm-modal-brochure { gap: 10px; }
+}
+
+/* Toast / snackbar — brief confirmation shown after a passive action like
+   a file download, where there's no page navigation to signal success. */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 32px;
+  z-index: 300;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: calc(100vw - 32px);
+  padding: 14px 20px;
+  background: var(--neutral-900);
+  color: var(--white);
+  border-radius: 999px;
+  box-shadow: 0 12px 32px rgba(23, 23, 23, 0.25);
+  font-size: 14px;
+  font-weight: 600;
+  transform: translate(-50%, 16px);
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 240ms cubic-bezier(0.23, 1, 0.32, 1), opacity 240ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+.toast.is-visible { opacity: 1; transform: translate(-50%, 0); }
+.toast-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #22c55e;
+  color: var(--white);
+  flex-shrink: 0;
+}
+.toast-icon svg { width: 13px; height: 13px; }
+@media (prefers-reduced-motion: reduce) {
+  .toast { transition: opacity 150ms ease; }
+}
+@media (max-width: 639px) {
+  .confirm-modal-dialog { padding: 32px 24px 40px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .confirm-modal, .confirm-modal-backdrop, .confirm-modal-dialog { transition: none; }
+}
+.mobile-float-whatsapp img { width: 100%; height: 100%; }
+
+/* ==========================================================================
+   Legal pages (terminos-y-condiciones.html, etc.) — the stripped-down
+   service-page template: no hero, so the section needs its own top
+   clearance under the fixed header instead of relying on a hero above it.
+   ========================================================================== */
+/* Chained with .service-section (not just .legal-section alone) so this
+   wins over .service-section's own `padding: 80px 0` shorthand — equal
+   single-class specificity would otherwise let that later declaration
+   reset padding-top back to 80px regardless of what's set here. */
+.service-section.legal-section { padding-top: calc(var(--header-height) + 48px); }
+@media (min-width: 900px) {
+  .service-section.legal-section { padding-top: calc(var(--header-height) + 128px); }
+}
+/* Chained with .service-back-link (not just .legal-back-link alone) so
+   this wins the color override regardless of source order — equal
+   single-class specificity would otherwise let .service-back-link's
+   white (meant for sitting on a dark hero) win since it's declared
+   later in the file. */
+.service-back-link.legal-back-link {
+  position: static;
+  margin-bottom: 8px;
+  color: var(--gray-600);
+  opacity: 1;
+}
+.service-back-link.legal-back-link:hover { color: var(--primary-500); }
+.legal-section .service-section-heading h1 {
+  max-width: 768px;
+  font-size: clamp(28px, 4vw, 36px);
+  font-weight: 700;
+  line-height: 1.22;
+  letter-spacing: -0.72px;
+  color: var(--neutral-900);
+}
+.legal-section .service-section-heading p.legal-updated { font-size: 15px; color: var(--gray-500); }
+/* Kept as a plain, unmodified .container (same convention as
+   .service-body elsewhere) so its padding matches every other section
+   on the site — the narrower reading width goes on the paragraphs
+   themselves instead of the container. */
+.legal-body .service-copy { gap: 12px; }
+.legal-body .service-copy h2 {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--neutral-900);
+}
+
+/* ==========================================================================
+   Footer disclaimer
+   ========================================================================== */
+.site-footer {
+  text-align: center;
+  padding: 20px;
+  font-size: 14px;
+  color: #666;
+  background-color: #f9f9f9;
+  border-top: 1px solid #eaeaea;
+}
+@media (max-width: 899px) {
+  /* Below 900px .whatsapp-float becomes a bar fixed to the bottom of the
+     viewport (~64px tall, 16px inset) — without this, it sits directly on
+     top of the last thing on the page, hiding the disclaimer behind it. */
+  .site-footer { padding-bottom: 96px; }
+}
+
+/* ==========================================================================
+   Internal service page (huella-digital.html, etc.) — from Figma
+   ========================================================================== */
+.service-hero {
+  position: relative;
+  margin-top: 0;
+  height: 700px;
+  background-size: cover;
+  background-position: center;
+  overflow: hidden;
+}
+.service-hero-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.76) 7%, rgba(0, 0, 0, 0) 72%);
+}
+/* Hero background video (Dropi Academy only): plain object-fit:cover like
+   the other local hero videos on the site. No visible controls (none
+   requested), pointer-events:none so clicks can't accidentally pause it. */
+.service-hero-video-embed {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+}
+.service-hero-sound-toggle {
+  position: absolute;
+  right: 24px;
+  bottom: 24px;
+  z-index: 2;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: var(--white);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, transform 0.15s cubic-bezier(0.23, 1, 0.32, 1);
+}
+@media (hover: hover) and (pointer: fine) {
+  .service-hero-sound-toggle:hover { background: rgba(255, 255, 255, 0.2); border-color: rgba(255, 255, 255, 0.85); }
+}
+.service-hero-sound-toggle:active { transform: scale(0.92); }
+.service-hero-sound-icon { grid-area: 1 / 1; width: 20px; height: 20px; }
+.service-hero-sound-toggle { display: grid; }
+.service-hero-sound-icon--unmuted { display: none; }
+.service-hero-sound-toggle[aria-pressed="true"] .service-hero-sound-icon--muted { display: none; }
+.service-hero-sound-toggle[aria-pressed="true"] .service-hero-sound-icon--unmuted { display: block; }
+@media (max-width: 899px) {
+  .service-hero-sound-toggle { right: 16px; bottom: 16px; }
+}
+/* The inner container shares the exact same left padding as every other
+   section (.container), so the hero text lines up with the section
+   heading below it instead of being centered as its own narrower box. */
+.service-hero-inner { position: relative; height: 100%; display: flex; align-items: center; }
+.service-hero-content { max-width: 566px; color: var(--white); display: flex; flex-direction: column; gap: 16px; }
+.service-hero-content h1 { font-size: clamp(34px, 5vw, 56px); font-weight: 700; line-height: 1.25; }
+.service-hero-content p { font-size: 20px; line-height: 1.3; }
+/* A CTA button inside the hero content (Dropi Academy, etc.) shouldn't
+   stretch to the flex column's full width like the default align-items
+   would give it. */
+.service-hero-content .btn { align-self: flex-start; width: fit-content; }
+/* Outline-only hint, no shape/bounce animation on the button itself —
+   just a line moving inside the icon: the classic scroll-wheel dash on
+   desktop (a real mouse), a tap ripple on touch devices (mobile/tablet,
+   <1024px) where there's no mouse to show. */
+.service-scroll-hint {
+  margin-top: 24px;
+  width: 24px;
+  height: 38px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--white);
+  opacity: 0.8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+@media (hover: hover) and (pointer: fine) {
+  .service-scroll-hint:hover { opacity: 1; }
+}
+.service-scroll-hint-icon { width: 100%; height: 100%; display: none; }
+.service-scroll-hint-icon--mouse { display: block; }
+@media (max-width: 1023px) {
+  .service-scroll-hint { width: 24px; height: 24px; }
+  .service-scroll-hint-icon--mouse { display: none; }
+  .service-scroll-hint-icon--tap { display: block; }
+}
+@media (max-width: 639px) {
+  .service-scroll-hint { display: none; }
+}
+.service-scroll-hint-wheel {
+  transform-origin: center;
+  animation: service-scroll-wheel 1.6s ease-in-out infinite;
+}
+@keyframes service-scroll-wheel {
+  0% { transform: translateY(0); opacity: 1; }
+  70% { opacity: 0; }
+  100% { transform: translateY(10px); opacity: 0; }
+}
+.service-scroll-hint-ring {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: service-scroll-tap 1.6s ease-out infinite;
+}
+.service-scroll-hint-ring--2 { animation-delay: 0.5s; }
+@keyframes service-scroll-tap {
+  0% { transform: scale(0.6); opacity: 0.9; }
+  100% { transform: scale(1.8); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .service-scroll-hint-wheel, .service-scroll-hint-ring { animation: none; opacity: 1; }
+}
+.service-back-link {
+  /* Pulled out of the vertically-centered hero-content flow and pinned
+     near the top of the hero (just under the fixed header) instead of
+     sitting inline above the title. */
+  /* left matches .container's own horizontal padding (24px / 48px at
+     900px+) so the link's text lines up with the header logo and the
+     hero title — position:absolute's "left:0" would otherwise sit at
+     the padding box's outer edge, 24-48px before where that padded
+     content actually starts. */
+  position: absolute;
+  top: calc(var(--header-height) + 24px);
+  left: 24px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  color: var(--white);
+  font-size: 14px;
+  font-weight: 600;
+  opacity: 0.85;
+  transition: opacity 0.2s ease;
+}
+.service-back-link:hover { opacity: 1; }
+.service-back-link:active { opacity: 0.65; }
+@media (min-width: 900px) {
+  .service-back-link { left: 48px; }
+}
+.service-back-icon {
+  width: 18px;
+  height: 18px;
+  transition: transform 0.25s cubic-bezier(0.23, 1, 0.32, 1);
+}
+.service-back-link:hover .service-back-icon { transform: translateX(-3px); }
+/* Shown only when initServiceRecommendedPill() (main.js) finds a
+   successful registration whose recommended list (persisted in
+   sessionStorage at submit time) includes this page's own
+   data-solution-badge value. Mirrors .solution-card-recommended's look. */
+.service-recommended-pill[hidden] { display: none; }
+.service-recommended-pill {
+  display: inline-flex;
+  width: fit-content;
+  padding: 6px 14px;
+  background: var(--primary-500);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--white);
+  box-shadow: 0 4px 12px rgba(255, 97, 2, 0.3);
+}
+.service-section { padding: 80px 0; }
+/* Kept as a plain, unmodified .container (no max-width/margin override
+   here) so its box lines up exactly with .service-body's — the narrower
+   reading width goes on the text elements inside instead. Overriding
+   max-width/margin on the container itself re-centers it as its own
+   narrower box, which drifts out of alignment with sibling sections. */
+.service-section-heading { display: flex; flex-direction: column; gap: 16px; }
+.service-section-heading h2 {
+  max-width: 768px;
+  font-size: clamp(28px, 4vw, 36px);
+  font-weight: 700;
+  line-height: 1.22;
+  letter-spacing: -0.72px;
+  color: var(--neutral-900);
+}
+.service-section-heading p { max-width: 768px; font-size: 20px; line-height: 1.5; color: var(--primary-500); }
+.service-body { margin-top: 48px; display: flex; flex-direction: column; gap: 48px; }
+.service-copy { display: flex; flex-direction: column; gap: 24px; }
+.service-copy p { font-size: 19px; line-height: 1.8; color: var(--neutral-600); }
+.service-copy p strong { color: var(--neutral-900); font-weight: 700; }
+@media (max-width: 639px) {
+  .service-copy p { font-size: 17px; line-height: 1.7; }
+}
+.service-image-wrap { border-radius: 8px; overflow: hidden; height: 480px; }
+.service-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  clip-path: inset(100% 0 0 0);
+  transform: scale(1.1);
+  transition: clip-path 1s cubic-bezier(0.16, 1, 0.3, 1), transform 1.1s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.service-image-wrap.in-view .service-image {
+  clip-path: inset(0 0 0 0);
+  transform: scale(1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .service-image { transition: none; }
+}
+.service-cta { margin-top: 8px; padding: 40px 32px; border-radius: 24px; background: var(--primary-50); text-align: center; }
+
+/* Standalone horizontal promo card (Beca Chatea Pro cross-sell embedded
+   in a service page's body) — same content as its gallery card, laid
+   out sideways instead of stacked, and free of the gallery's own
+   scroll/reveal behavior since it lives outside #solutions-scroll. */
+.chateapro-promo {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  margin-top: 8px;
+  border: 1px solid var(--gray-100);
+  border-radius: 24px;
+  overflow: hidden;
+  box-shadow: 0 10px 40px rgba(23, 23, 23, 0.06);
+}
+.chateapro-promo-image { position: relative; flex: 0 0 280px; }
+.chateapro-promo-image img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.chateapro-promo-badge {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  padding: 6px 14px;
+  background: rgba(255, 255, 255, 0.85);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--primary-500);
+}
+.chateapro-promo-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 32px;
+}
+.chateapro-promo-body h3 { font-size: 20px; font-weight: 700; color: var(--neutral-900); }
+.chateapro-promo-body p { font-size: 15px; line-height: 1.5; color: var(--gray-600); }
+.chateapro-promo-btn { margin-top: 8px; }
+.chateapro-promo-note { font-size: 12px; color: var(--gray-500); }
+@media (max-width: 767px) {
+  .chateapro-promo { flex-direction: column; }
+  .chateapro-promo-image { flex-basis: 200px; }
+}
+.service-cta-title { font-size: 20px; font-weight: 700; color: var(--neutral-900); }
+.service-cta .btn { margin-top: 20px; }
+.service-share {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 20px 24px;
+  border-radius: 16px;
+  border: 1px solid var(--neutral-200);
+}
+.service-share-label { font-size: 15px; font-weight: 600; color: var(--neutral-900); }
+.service-share-actions { display: flex; align-items: center; gap: 10px; }
+.service-share-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 44px;
+  padding: 0 18px;
+  border-radius: 999px;
+  border: none;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.15s cubic-bezier(0.23, 1, 0.32, 1), box-shadow 0.2s ease, background 0.2s ease;
+}
+.service-share-btn:active { transform: scale(0.96); }
+.service-share-btn--whatsapp {
+  background: #25d366;
+  color: var(--white);
+}
+@media (hover: hover) and (pointer: fine) {
+  .service-share-btn--whatsapp:hover { box-shadow: 0 8px 20px rgba(37, 211, 102, 0.35); }
+}
+.service-share-btn--copy {
+  background: var(--white);
+  color: var(--neutral-900);
+  border: 1px solid var(--neutral-200);
+}
+@media (hover: hover) and (pointer: fine) {
+  .service-share-btn--copy:hover { background: var(--neutral-100); }
+}
+/* Icon crossfade: the link icon scales/fades out while the checkmark
+   scales/fades in, toggled by .is-copied on the button (see
+   initServiceShare in main.js). Both icons share one grid cell so the
+   swap doesn't shift the button's width. */
+.service-share-btn-icons { display: grid; width: 18px; height: 18px; }
+.service-share-icon {
+  grid-area: 1 / 1;
+  width: 18px;
+  height: 18px;
+  transition: opacity 0.25s cubic-bezier(0.23, 1, 0.32, 1), transform 0.25s cubic-bezier(0.23, 1, 0.32, 1);
+}
+.service-share-icon--check { opacity: 0; transform: scale(0.6); color: #1a9e4c; }
+.service-share-icon--link { opacity: 1; transform: scale(1); }
+.service-share-btn--copy.is-copied .service-share-icon--link { opacity: 0; transform: scale(0.6); }
+.service-share-btn--copy.is-copied .service-share-icon--check { opacity: 1; transform: scale(1); }
+@media (prefers-reduced-motion: reduce) {
+  .service-share-btn, .service-share-icon { transition: none; }
+}
+@media (max-width: 899px) {
+  .service-share { flex-direction: column; align-items: stretch; text-align: center; }
+  .service-share-actions { justify-content: center; }
+}
+@media (max-width: 639px) {
+  .service-share-actions { flex-direction: column; align-items: stretch; }
+  .service-share-btn { justify-content: center; width: 100%; }
+}
+@media (max-width: 899px) {
+  /* The header stays fixed/translucent here (.site-header--overlay
+     above), so the hero keeps height:auto removed and instead gets a
+     tall min-height with top padding that clears the header, matching
+     the desktop full-bleed-behind-the-header treatment. */
+  .service-hero { height: auto; min-height: 560px; margin-top: 0; padding: calc(var(--header-height) + 32px) 0 48px; }
+  .service-hero-overlay { background: linear-gradient(180deg, rgba(0, 0, 0, 0.65) 0%, rgba(0, 0, 0, 0.35) 100%); }
+  /* Left-aligned, matching the back-link above and the body copy below —
+     margin-top clears the back-link, which stays pinned top-left
+     (position:absolute, out of this flex flow). */
+  .service-hero-content { margin-top: 72px; }
+  .service-back-link { top: 8px; }
+  .service-image-wrap { height: 260px; }
+  .service-cta { padding: 32px 20px; }
+}
+
+/* Atención VIP hero photo: the subject sits on the right third of the
+   image, cropped out on narrow screens under the default centered
+   position — shift it right so he stays in frame. */
+@media (max-width: 639px) {
+  .service-hero--vip { background-position: 78% center; }
+}
+
+/* ==========================================================================
+   Internal service page — "¿Cómo funciona?" step grid (from Figma)
+   ========================================================================== */
+.service-how { padding: 80px 0; background: var(--white); }
+.service-how-heading { max-width: 768px; margin: 0 auto 48px; text-align: center; }
+.service-how-heading h2 {
+  font-size: clamp(28px, 4vw, 36px);
+  font-weight: 700;
+  letter-spacing: -0.72px;
+  color: var(--neutral-900);
+}
+.service-how-heading p { margin-top: 16px; font-size: 20px; line-height: 1.5; color: var(--neutral-600); }
+.service-how-grid {
+  max-width: 1184px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 48px 32px;
+}
+.service-how-step { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 16px; }
+.service-how-icon {
+  position: relative;
+  width: 96px;
+  height: 96px;
+  border-radius: 20px;
+  overflow: hidden;
+}
+.service-how-icon img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* Same recolor trick used elsewhere on the site: the source icons render
+   blue, and a flat primary-500 layer + mix-blend-mode:color retints them
+   to the brand orange without needing edited assets. */
+.service-how-icon-tint { position: absolute; inset: 0; background: var(--primary-500); mix-blend-mode: color; }
+.service-how-step h3 { font-size: 20px; font-weight: 700; color: var(--neutral-900); }
+.service-how-step p { font-size: 15px; line-height: 1.5; color: var(--neutral-600); max-width: 260px; }
+/* Reuses .carriers-section/.carrier-logos as-is (circular logos, scroll
+   reveal via initCarrierLogosReveal in main.js) — only the outer padding
+   is reset since it sits inside .service-how instead of its own section. */
+.service-how-carriers { padding: 48px 0 0; }
+.service-how-carriers-label { text-align: center; font-size: 16px; color: var(--neutral-600); margin-bottom: 24px; }
+@media (max-width: 899px) {
+  .service-how { padding: 56px 0; }
+}
+/* Tablet: 2 columns instead of the desktop 3 or the mobile single column. */
+@media (min-width: 640px) and (max-width: 1023px) {
+  .service-how-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 639px) {
+  .service-how-grid { grid-template-columns: 1fr; gap: 40px; }
+}

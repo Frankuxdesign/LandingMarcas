@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "landing-static",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["/Users/francisco.velandia/Desktop/Landing escalando/.claude/static-server.js"],
+      "port": 4173,
+      "autoPort": true
+    }
+  ]
+}

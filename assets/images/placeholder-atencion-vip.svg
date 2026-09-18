@@ -1,0 +1,18 @@
+<svg width="1200" height="800" viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <pattern id="diag" width="28" height="28" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
+      <rect width="28" height="28" fill="#f5f5f5" />
+      <line x1="0" y1="0" x2="0" y2="28" stroke="#e5e5e5" stroke-width="14" />
+    </pattern>
+  </defs>
+  <rect width="1200" height="800" fill="url(#diag)" />
+  <rect x="0.5" y="0.5" width="1199" height="799" fill="none" stroke="#c3c9d9" stroke-width="1" />
+  <g transform="translate(600,340)" text-anchor="middle">
+    <circle cx="0" cy="0" r="44" fill="none" stroke="#69738c" stroke-width="2" />
+    <path d="M-16,-6 a16,16 0 1,1 32,0 c0,10 -16,10 -16,20" fill="none" stroke="#69738c" stroke-width="2" stroke-linecap="round" style="display:none" />
+    <path d="M-14,10 c0,-16 28,-16 28,0" fill="none" stroke="#69738c" stroke-width="2" stroke-linecap="round" />
+    <circle cx="0" cy="-10" r="9" fill="none" stroke="#69738c" stroke-width="2" />
+  </g>
+  <text x="600" y="430" font-family="Arial, sans-serif" font-size="28" font-weight="700" fill="#475066" text-anchor="middle">Imagen pendiente</text>
+  <text x="600" y="464" font-family="Arial, sans-serif" font-size="18" fill="#69738c" text-anchor="middle">Atención VIP (1200×800 sugerido)</text>
+</svg>
