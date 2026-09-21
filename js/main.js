@@ -78,7 +78,6 @@ function initKineticText() {
     if (el.closest('.kinetic-text')) return false; // avoid double-wrapping nested matches
     if (el.closest('.solution-card')) return false; // these get their own entrance animation instead
     if (el.closest('.dolor-item')) return false; // these get their own entrance animation instead
-    if (el.closest('.hero-title-swap')) return false; // custom phrase-swap animation instead
     if (el.closest('.pf-summary-checklist')) return false; // list items hold an icon span, not just text
     const hasText = el.textContent && el.textContent.trim().length > 0;
     const onlyHoldsElements = el.children.length > 0 && el.textContent.trim() === '';
@@ -109,6 +108,13 @@ function initKineticText() {
     };
 
     sourceNodes.forEach((node) => {
+      // A <br> (e.g. the hero title's responsive forced line break) has no
+      // text content, so the word-splitting below would silently drop it —
+      // carry it over as-is instead of feeding it through addWord.
+      if (node.nodeType === Node.ELEMENT_NODE && node.tagName === 'BR') {
+        el.appendChild(node.cloneNode(false)); // keep its class (e.g. hero-title-break)
+        return;
+      }
       const isInlineElement = node.nodeType === Node.ELEMENT_NODE;
       const words = (node.textContent || '').split(/\s+/).filter(Boolean);
       if (!words.length) return;
@@ -166,54 +172,6 @@ function initKineticText() {
   }, { threshold: 0.15, rootMargin: '0px 0px -8% 0px' });
 
   targets.forEach((el) => observer.observe(el));
-}
-
-function initTitleSwap(containerId) {
-  const wrap = document.getElementById(containerId);
-  const phrases = Array.from(wrap?.querySelectorAll('.hero-title-phrase') || []);
-  if (!wrap || phrases.length < 2) return;
-
-  // Instantly (no transition) place a phrase off-screen above or below,
-  // ready to roll into place later.
-  function snap(el, translateYPercent) {
-    el.style.transition = 'none';
-    el.style.transform = `translateY(${translateYPercent}%)`;
-    void el.offsetHeight; // flush so the next transform change animates
-    el.style.transition = '';
-  }
-
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    // Show only the first phrase, statically, no rolling ticker.
-    snap(phrases[0], 0);
-    phrases.slice(1).forEach((p) => snap(p, 100));
-    return;
-  }
-
-  const ENTER_DELAY_MS = 300; // let the page settle before the ticker starts
-  const DWELL_MS = 3000; // how long each phrase stays fully visible
-  const ROLL_MS = 900; // must match the CSS transition duration
-
-  phrases.forEach((p) => snap(p, 100));
-
-  let activeIndex = 0;
-
-  function roll() {
-    const current = phrases[activeIndex];
-    const nextIndex = (activeIndex + 1) % phrases.length;
-    const next = phrases[nextIndex];
-    // Like a promo-bar ticker: the current phrase rolls up and out while
-    // the next one rolls up into place at the same time, looping forever.
-    current.style.transform = 'translateY(-100%)';
-    next.style.transform = 'translateY(0)';
-    activeIndex = nextIndex;
-    setTimeout(() => snap(current, 100), ROLL_MS);
-    setTimeout(roll, DWELL_MS);
-  }
-
-  setTimeout(() => {
-    phrases[0].style.transform = 'translateY(0)';
-    setTimeout(roll, DWELL_MS);
-  }, ENTER_DELAY_MS);
 }
 
 function initHeroParallax() {
@@ -1105,7 +1063,6 @@ function initServiceHeroHeaderContrast() {
 
 document.addEventListener('DOMContentLoaded', () => {
   initKineticText();
-  initTitleSwap('hero-title-swap');
   initHeroParallax();
   initPartnerMarquee();
   initSolutionsGallery();

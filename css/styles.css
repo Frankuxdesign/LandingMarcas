@@ -343,21 +343,17 @@ p.kinetic-text.in-view .kinetic-word {
   .hero-text h1 { font-size: 30px; }
   .hero-text .hero-eyebrow { font-size: 13px; font-weight: 600; margin-bottom: 2px; }
 }
+/* Forced break after "Ya vendes." only on desktop — below that, the
+   title just wraps naturally wherever it needs to. */
+.hero-title-break { display: none; }
+@media (min-width: 900px) {
+  .hero-title-break { display: inline; }
+}
 /* Hero title phrase swap: a looping vertical ticker (like a promo-bar
    rotator) — the two phrases share one grid cell clipped by overflow, the
    outgoing phrase rolls up and out while the incoming one rolls up from
    below at the same time, repeating forever. Positions are driven by JS
    inline transforms; this transition is what makes each roll animate. */
-.hero-title-swap { display: grid; overflow: hidden; }
-.hero-title-phrase {
-  grid-area: 1 / 1;
-  transform: translateY(100%);
-  transition: transform 0.9s cubic-bezier(0.65, 0, 0.35, 1);
-  will-change: transform;
-}
-@media (prefers-reduced-motion: reduce) {
-  .hero-title-phrase { transition: none; }
-}
 .hero-subtitle {
   font-size: 22px;
   line-height: 1.55;
@@ -689,20 +685,24 @@ p.kinetic-text.in-view .kinetic-word {
      animation) so the larger image reaches closer to the section's edge. */
   .brand-image { margin-top: -64px; }
 }
-@media (max-width: 1023px) {
+@media (max-width: 899px) {
   /* Crop tighter on mobile/tablet: head down to the elbows, no waist/jeans —
      the original photo is portrait (668x951), so a wide, short box with
-     object-fit: cover + top-anchored position keeps only the top ~45%. */
+     object-fit: cover + top-anchored position keeps only the top ~45%.
+     Stops at the same 900px line desktop sizing starts at (below), so
+     there's no gap where it's both cropped and desktop-sized. */
   .brand-image img {
     aspect-ratio: 668 / 428;
     object-fit: cover;
     object-position: top;
   }
 }
-@media (min-width: 640px) and (max-width: 1023px) {
+@media (min-width: 640px) and (max-width: 899px) {
   /* This crop packs the head into a much shorter box than desktop's full
      portrait, so the same percentage offsets read as too far away —
-     pull the emojis in tighter around it. */
+     pull the emojis in tighter around it. Matches the crop's own
+     max-width: 899px above, so it never applies past where the image
+     goes back to the full uncropped portrait. */
   .brand-image .brand-emoji--a { top: 6%; left: 20%; }
   .brand-image .brand-emoji--b { top: 4%; right: 22%; }
 }
