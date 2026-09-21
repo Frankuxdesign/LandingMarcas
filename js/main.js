@@ -1524,6 +1524,17 @@ document.addEventListener('DOMContentLoaded', () => {
           pagina_origen: document.referrer || null,
         });
 
+        // The terms/privacy checkbox is a native `required` field, so
+        // reaching this point already means the visitor accepted both —
+        // fire the Meta Pixel's standard Lead event right here, once per
+        // successful submission (not on every click of the CTA).
+        if (typeof fbq === 'function') {
+          fbq('track', 'Lead', {
+            content_name: 'Registro Dropi',
+            volumen_pedidos: tier,
+          });
+        }
+
         openConfirmModal();
         hasRegistered = true;
         revealRecommendedSolutions(tier);
