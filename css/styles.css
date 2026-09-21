@@ -443,7 +443,6 @@ p.kinetic-text.in-view .kinetic-word {
   max-width: 480px;
   aspect-ratio: 927.9 / 540.1;
   margin: 0 auto;
-  perspective: 1400px;
 }
 @media (min-width: 1024px) {
   .hero-visual { flex: 0 0 75.3%; max-width: 928px; margin: 0; }
@@ -459,8 +458,6 @@ p.kinetic-text.in-view .kinetic-word {
   background-size: contain;
   opacity: 0.9;
   z-index: 0;
-  will-change: transform;
-  transform-style: preserve-3d;
 }
 .hero-photo {
   position: absolute;
@@ -473,8 +470,6 @@ p.kinetic-text.in-view .kinetic-word {
   border-radius: var(--radius-lg);
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.18);
   transform: scaleX(-1);
-  will-change: transform;
-  transform-style: preserve-3d;
 }
 .hero-mockup {
   position: absolute;
@@ -488,8 +483,6 @@ p.kinetic-text.in-view .kinetic-word {
   overflow: hidden;
   box-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.25);
   background: var(--neutral-900);
-  will-change: transform;
-  transform-style: preserve-3d;
 }
 .hero-mockup img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
@@ -1519,6 +1512,12 @@ p.kinetic-text.in-view .kinetic-word {
 }
 .register-field-label { font-size: 14px; color: var(--gray-600); }
 .register-field.has-error input { border-color: var(--danger-500); box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12); }
+/* Called out by the submit tooltip while it names this field as missing —
+   distinct from .has-error (a real validation failure): this just points. */
+.register-field.is-tooltip-target input {
+  border-color: var(--primary-500);
+  animation: registerFieldGlow 1.4s ease-in-out infinite;
+}
 /* Success state: a filled-in, valid field gets a firmer weight and a
    checkmark instead of staying visually identical to an empty one —
    confirms the input was understood without waiting for form submission. */
@@ -1682,16 +1681,130 @@ p.kinetic-text.in-view .kinetic-word {
 .register-checkbox-input:focus-visible ~ .register-checkbox-box { outline: 2px solid var(--primary-500); outline-offset: 2px; }
 .register-checkbox-label { font-size: 14px; line-height: 1.5; color: var(--gray-700); }
 .register-checkbox-link { color: var(--primary-500); text-decoration: underline; }
+.register-checkbox.is-tooltip-target .register-checkbox-box {
+  border-color: var(--primary-500);
+  animation: registerFieldGlow 1.4s ease-in-out infinite;
+}
+@keyframes registerFieldGlow {
+  0%, 100% { box-shadow: 0 0 0 3px rgba(255, 97, 2, 0.16); }
+  50% { box-shadow: 0 0 0 6px rgba(255, 97, 2, 0.28); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .register-field.is-tooltip-target input,
+  .register-checkbox.is-tooltip-target .register-checkbox-box { animation: none; box-shadow: 0 0 0 3px rgba(255, 97, 2, 0.2); }
+}
 
 .register-submit {
   width: 100%;
   background: var(--primary-500);
+  border: 2px solid transparent;
   color: var(--white);
   font-size: 16px;
   border-radius: 8px;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
 }
 @media (hover: hover) and (pointer: fine) {
-  .register-submit:hover { box-shadow: 0 8px 20px rgba(255, 97, 2, 0.35); }
+  .register-submit:not(:disabled):hover { box-shadow: 0 8px 20px rgba(255, 97, 2, 0.35); }
+}
+/* Disabled reads as the secondary/outline button instead of a flat
+   "grayed out" state — still branded, signals "not yet, but almost"
+   rather than "unavailable". Becomes the filled primary button the
+   moment both checkboxes are checked. */
+.register-submit:disabled {
+  background: transparent;
+  border-color: var(--primary-500);
+  color: var(--primary-500);
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.register-submit-wrap { position: relative; width: 100%; }
+/* Invisible hit target stacked over the real (disabled) submit button.
+   A native disabled <button> fires no click/touch events at all, so it
+   never bubbles a tap up to the wrapper — this sibling stands in only
+   while disabled (see .is-disabled below) so mobile/tablet taps have
+   something to actually land on; pointer-events: none once enabled lets
+   clicks pass straight through to the real button. */
+.register-submit-hit {
+  position: absolute;
+  inset: 0;
+  border: none;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+.register-submit-wrap.is-disabled .register-submit-hit { pointer-events: auto; }
+.register-submit-tooltip {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 50%;
+  transform: translateX(-50%) translateY(4px) scale(0.96);
+  width: max-content;
+  max-width: 280px;
+  text-align: left;
+  line-height: 1.4;
+  background: rgba(255, 255, 255, 0.68);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  color: var(--neutral-900);
+  font-size: 13px;
+  font-weight: 500;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  box-shadow:
+    0 12px 32px rgba(23, 23, 23, 0.16),
+    0 1px 1px rgba(255, 255, 255, 0.4) inset,
+    0 -1px 8px rgba(255, 255, 255, 0.3) inset;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  z-index: 2;
+}
+.register-submit-tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  width: 10px;
+  height: 10px;
+  margin-top: -6px;
+  background: rgba(255, 255, 255, 0.68);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border-right: 1px solid rgba(255, 255, 255, 0.7);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.7);
+  transform: translateX(-50%) rotate(45deg);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .register-submit-tooltip,
+  .register-submit-tooltip::after { background: rgba(255, 255, 255, 0.96); }
+}
+.register-submit-tooltip-intro {
+  display: block;
+  font-weight: 700;
+  color: var(--neutral-900);
+}
+.register-submit-tooltip-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 6px 0 0;
+  padding-left: 16px;
+  font-weight: 400;
+  font-size: 12.5px;
+  color: var(--gray-600);
+}
+.register-submit-tooltip-list li { list-style: disc; }
+.register-submit-wrap.is-tooltip-visible .register-submit-tooltip {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0) scale(1);
+}
+@media (max-width: 479px) {
+  .register-submit-tooltip { max-width: 240px; font-size: 12px; }
+  .register-submit-tooltip-list { font-size: 12px; }
 }
 
 /* ==========================================================================
@@ -2307,8 +2420,24 @@ body.modal-open { overflow: hidden; }
 .service-copy { display: flex; flex-direction: column; gap: 24px; }
 .service-copy p { font-size: 19px; line-height: 1.8; color: var(--neutral-600); }
 .service-copy p strong { color: var(--neutral-900); font-weight: 700; }
+.service-copy ul,
+.service-copy ol {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-left: 24px;
+  font-size: 19px;
+  line-height: 1.8;
+  color: var(--neutral-600);
+}
+.service-copy ul { list-style: disc; }
+.service-copy ol { list-style: decimal; }
+.service-copy li { padding-left: 4px; }
+.service-copy li strong { color: var(--neutral-900); font-weight: 700; }
 @media (max-width: 639px) {
   .service-copy p { font-size: 17px; line-height: 1.7; }
+  .service-copy ul,
+  .service-copy ol { font-size: 17px; line-height: 1.7; padding-left: 20px; }
 }
 .service-image-wrap { border-radius: 8px; overflow: hidden; height: 480px; }
 .service-image {

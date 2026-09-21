@@ -82,7 +82,10 @@ src="https://www.facebook.com/tr?id=1993505871363238&ev=PageView&noscript=1"
         <div class="hero-visual-pattern" aria-hidden="true"></div>
         <img class="hero-photo" src="assets/images/hero-woman.png" alt="Trabajadora en bodega logística" />
         <div class="hero-mockup">
-          <img src="assets/images/hero-screen-mockup.png" alt="Panel de control de Dropi mostrando la gestión de órdenes" />
+          <picture>
+            <source srcset="assets/images/hero-screen-mockup.webp" type="image/webp" />
+            <img src="assets/images/hero-screen-mockup.png" alt="Panel de control de Dropi mostrando la gestión de órdenes" />
+          </picture>
         </div>
       </div>
     </div>
@@ -93,9 +96,15 @@ src="https://www.facebook.com/tr?id=1993505871363238&ev=PageView&noscript=1"
     <div class="brand-section-clip">
       <div class="container brand-grid">
         <div class="brand-image">
-          <img src="assets/images/brand-section-image.png" alt="Mujer preocupada sosteniéndose la cabeza" />
-          <img class="brand-emoji brand-emoji--a" src="assets/images/emoji-worried.gif" alt="" aria-hidden="true" width="56" height="56" loading="lazy" />
-          <img class="brand-emoji brand-emoji--b" src="assets/images/emoji-angry.gif" alt="" aria-hidden="true" width="56" height="56" loading="lazy" />
+          <picture>
+            <source srcset="assets/images/brand-section-image.webp" type="image/webp" />
+            <img src="assets/images/brand-section-image.png" alt="Mujer preocupada sosteniéndose la cabeza" />
+          </picture>
+          <picture>
+            <source srcset="assets/images/emoji-worried.webp" type="image/webp" />
+            <img class="brand-emoji brand-emoji--a" src="assets/images/emoji-worried.gif" alt="" aria-hidden="true" width="56" height="56" loading="lazy" />
+          </picture>
+          <img class="brand-emoji brand-emoji--b" src="assets/images/emoji-angry.png" alt="" aria-hidden="true" width="56" height="56" loading="lazy" />
         </div>
         <div class="brand-content">
           <h2>Lo que nadie te cuenta de vender online</h2>
@@ -403,8 +412,14 @@ src="https://www.facebook.com/tr?id=1993505871363238&ev=PageView&noscript=1"
       <h2>Completa tus datos y un asesor te contactará</h2>
 
       <form class="plan-finder" id="email-form" novalidate>
-        <img class="cta-emoji cta-emoji--a" src="assets/images/grinning-face.gif" alt="" aria-hidden="true" width="56" height="56" loading="lazy" />
-        <img class="cta-emoji cta-emoji--e" src="assets/images/heart.gif" alt="" aria-hidden="true" width="48" height="48" loading="lazy" />
+        <picture>
+          <source srcset="assets/images/grinning-face.webp" type="image/webp" />
+          <img class="cta-emoji cta-emoji--a" src="assets/images/grinning-face.gif" alt="" aria-hidden="true" width="56" height="56" loading="lazy" />
+        </picture>
+        <picture>
+          <source srcset="assets/images/heart.webp" type="image/webp" />
+          <img class="cta-emoji cta-emoji--e" src="assets/images/heart.gif" alt="" aria-hidden="true" width="48" height="48" loading="lazy" />
+        </picture>
         <div class="plan-finder-grid">
           <div class="pf-steps">
             <div class="pf-step" data-step="0">
@@ -479,13 +494,24 @@ src="https://www.facebook.com/tr?id=1993505871363238&ev=PageView&noscript=1"
                   </label>
                 </div>
                 <label class="register-checkbox">
-                  <input type="checkbox" name="terms" class="register-checkbox-input" required />
+                  <input type="checkbox" name="terms_tc" id="terms-tc-input" class="register-checkbox-input" required />
                   <span class="register-checkbox-box" aria-hidden="true">
                     <img src="assets/icons/icon-check-white.svg" alt="" width="12" height="12" />
                   </span>
-                  <span class="register-checkbox-label">Acepto los <a href="terminos-y-condiciones.html" target="_blank" rel="noopener" class="register-checkbox-link">términos y condiciones</a> y <a href="politicas-de-privacidad.html" target="_blank" rel="noopener" class="register-checkbox-link">políticas de privacidad</a> de Dropi.</span>
+                  <span class="register-checkbox-label">He leído y acepto los <a href="terminos-y-condiciones.html" target="_blank" rel="noopener" class="register-checkbox-link">Términos y Condiciones</a> de esta landing.</span>
                 </label>
-                <button type="submit" class="btn register-submit">Enviar</button>
+                <label class="register-checkbox">
+                  <input type="checkbox" name="terms_privacy" id="terms-privacy-input" class="register-checkbox-input" required />
+                  <span class="register-checkbox-box" aria-hidden="true">
+                    <img src="assets/icons/icon-check-white.svg" alt="" width="12" height="12" />
+                  </span>
+                  <span class="register-checkbox-label">Autorizo a DROPI S.A.S. a tratar mis datos personales conforme a la <a href="politicas-de-privacidad.html" target="_blank" rel="noopener" class="register-checkbox-link">Política de Tratamiento de Datos Personales</a> de esta landing.</span>
+                </label>
+                <div class="register-submit-wrap" id="register-submit-wrap">
+                  <button type="submit" class="btn register-submit" id="register-submit-btn" disabled>Enviar datos al asesor</button>
+                  <button type="button" class="register-submit-hit" id="register-submit-hit" tabindex="-1" aria-hidden="true"></button>
+                  <span class="register-submit-tooltip" id="register-submit-tooltip" role="tooltip"></span>
+                </div>
                 <p class="pf-summary-note">Un asesor comercial te contacta sin compromiso.</p>
               </div>
             </div>

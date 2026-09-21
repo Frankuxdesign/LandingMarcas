@@ -31,6 +31,41 @@ window.addEventListener('pagereveal', (event) => {
 const SUPABASE_URL = 'https://qdzrpgnryzsolstfimty.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_2R1lplZjaiqtIk4SejUeqA_gpk2nKlX';
 
+// Bump these whenever terminos-y-condiciones.html / politicas-de-privacidad.html
+// change in a way that matters legally — every lead records which version
+// was live when the visitor accepted it. Keep in sync with the
+// "legal-updated" line on each of those pages.
+const TC_VERSION = '1.0 (2026-09-21)';
+const PRIVACY_VERSION = '1.0 (2026-09-21)';
+
+// Best-effort client-side IP + approximate geolocation for the leads log
+// (this site has no backend of its own to read the request's real IP
+// from, so it asks a third-party service instead — the IP is therefore
+// self-reported by the browser, not server-verified). Kicked off once on
+// load so it's already resolved (or failed) by the time someone actually
+// submits, instead of adding latency to the submit itself.
+function fetchGeoIp(timeoutMs = 4000) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  return fetch('https://ipapi.co/json/', { signal: controller.signal })
+    .then((res) => (res.ok ? res.json() : null))
+    .then((data) => {
+      if (!data || data.error) return null;
+      return {
+        ip: data.ip || null,
+        city: data.city || null,
+        region: data.region || null,
+        country: data.country_name || null,
+        postal: data.postal || null,
+        latitude: data.latitude ?? null,
+        longitude: data.longitude ?? null,
+      };
+    })
+    .catch(() => null) // network failure, blocked request, timeout, etc. — fail open
+    .finally(() => clearTimeout(timeout));
+}
+const geoIpPromise = fetchGeoIp();
+
 async function saveLeadToSupabase(lead) {
   try {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/leads`, {
@@ -172,117 +207,6 @@ function initKineticText() {
   }, { threshold: 0.15, rootMargin: '0px 0px -8% 0px' });
 
   targets.forEach((el) => observer.observe(el));
-}
-
-function initHeroParallax() {
-  const stage = document.querySelector('.hero-visual');
-  if (!stage) return;
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-
-  const layers = [
-    { el: stage.querySelector('.hero-visual-pattern'), depth: 0.35, mirror: false },
-    { el: stage.querySelector('.hero-photo'), depth: 0.65, mirror: true },
-    { el: stage.querySelector('.hero-mockup'), depth: 1, mirror: false },
-  ].filter((layer) => layer.el);
-
-  if (!layers.length) return;
-
-  const MAX_TRANSLATE = 20; // px, at full depth
-  const MAX_ROTATE = 9; // deg, at full depth
-  const EASE = 0.09; // trailing smoothness (lower = floatier)
-  // A slow, perpetual sine drift layered on top of the mouse/tilt offset —
-  // small enough to read as "alive" ambient motion rather than fighting
-  // the user's own input, and it never stops, unlike the old settle-and-
-  // stop loop (which went fully static the moment the pointer stopped).
-  const IDLE_AMPLITUDE = 0.12; // fraction of the -1..1 pointer range
-  const IDLE_PERIOD_X = 7.5; // seconds per full cycle
-  const IDLE_PERIOD_Y = 9.5;
-
-  let targetX = 0;
-  let targetY = 0;
-  let currentX = 0;
-  let currentY = 0;
-  let rafId = null;
-  const startTime = performance.now();
-
-  function setTargetFromPoint(clientX, clientY) {
-    const rect = stage.getBoundingClientRect();
-    const relX = (clientX - rect.left) / rect.width;
-    const relY = (clientY - rect.top) / rect.height;
-    targetX = Math.max(-1, Math.min(1, (relX - 0.5) * 2));
-    targetY = Math.max(-1, Math.min(1, (relY - 0.5) * 2));
-  }
-
-  function resetTarget() {
-    targetX = 0;
-    targetY = 0;
-  }
-
-  function startLoop() {
-    if (rafId === null) rafId = requestAnimationFrame(tick);
-  }
-
-  function tick() {
-    currentX += (targetX - currentX) * EASE;
-    currentY += (targetY - currentY) * EASE;
-
-    const elapsed = (performance.now() - startTime) / 1000;
-    const idleX = Math.sin((elapsed / IDLE_PERIOD_X) * Math.PI * 2) * IDLE_AMPLITUDE;
-    const idleY = Math.cos((elapsed / IDLE_PERIOD_Y) * Math.PI * 2) * IDLE_AMPLITUDE;
-    const composedX = currentX + idleX;
-    const composedY = currentY + idleY;
-
-    layers.forEach(({ el, depth, mirror }) => {
-      const tx = (composedX * MAX_TRANSLATE * depth).toFixed(2);
-      const ty = (composedY * MAX_TRANSLATE * depth).toFixed(2);
-      const rx = (-composedY * MAX_ROTATE * depth).toFixed(2);
-      const ry = (composedX * MAX_ROTATE * depth).toFixed(2);
-      el.style.transform =
-        `translate3d(${tx}px, ${ty}px, 0) rotateX(${rx}deg) rotateY(${ry}deg)` +
-        (mirror ? ' scaleX(-1)' : '');
-    });
-
-    // Never stops — the idle sine drift alone keeps this ticking forever.
-    rafId = requestAnimationFrame(tick);
-  }
-
-  stage.addEventListener('mousemove', (e) => setTargetFromPoint(e.clientX, e.clientY));
-  stage.addEventListener('mouseleave', resetTarget);
-  stage.addEventListener('touchmove', (e) => {
-    if (e.touches[0]) setTargetFromPoint(e.touches[0].clientX, e.touches[0].clientY);
-  }, { passive: true });
-  stage.addEventListener('touchend', resetTarget);
-  startLoop();
-
-  // On mobile, let the phone's own tilt drive the parallax too — feels
-  // alive without requiring the user to drag a finger across the hero.
-  function handleOrientation(e) {
-    if (e.gamma === null || e.beta === null) return;
-    const gamma = Math.max(-45, Math.min(45, e.gamma)); // left/right tilt
-    const beta = Math.max(20, Math.min(70, e.beta)); // front/back tilt, typical hold angle
-    targetX = gamma / 45;
-    targetY = (beta - 45) / 25;
-    startLoop();
-  }
-
-  function enableTilt() {
-    window.addEventListener('deviceorientation', handleOrientation);
-  }
-
-  if (window.DeviceOrientationEvent) {
-    if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-      // iOS 13+ only grants this from within a user gesture.
-      const requestOnce = () => {
-        DeviceOrientationEvent.requestPermission()
-          .then((state) => { if (state === 'granted') enableTilt(); })
-          .catch(() => {});
-        window.removeEventListener('touchend', requestOnce);
-      };
-      window.addEventListener('touchend', requestOnce, { once: true });
-    } else {
-      enableTilt();
-    }
-  }
 }
 
 function initPartnerMarquee() {
@@ -1063,7 +987,6 @@ function initServiceHeroHeaderContrast() {
 
 document.addEventListener('DOMContentLoaded', () => {
   initKineticText();
-  initHeroParallax();
   initPartnerMarquee();
   initSolutionsGallery();
   initSolutionCardsReveal();
@@ -1110,13 +1033,125 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const planFinder = document.querySelector('.plan-finder');
   let updateStepStates = () => {};
+  // Shared with the emailForm submit handler further down (both blocks
+  // live in this same outer scope) — set by the checkbox change
+  // listeners below, read when a submission actually goes through.
+  let tcAcceptedAt = null;
+  let privacyAcceptedAt = null;
+  let updateConsentState = () => {};
   if (planFinder) {
     const stepEls = Array.from(planFinder.querySelectorAll('.pf-step'));
     const step2Heading = planFinder.querySelector('.pf-step[data-step="2"] h3');
     const nombreInput = planFinder.querySelector('input[name="nombre"]');
     const emailFieldInput = planFinder.querySelector('input[name="email"]');
     const telefonoInput = planFinder.querySelector('input[name="telefono"]');
-    const termsInput = planFinder.querySelector('.register-checkbox-input');
+    const termsTcInput = document.getElementById('terms-tc-input');
+    const termsPrivacyInput = document.getElementById('terms-privacy-input');
+    const registerSubmitBtn = document.getElementById('register-submit-btn');
+    const registerSubmitWrap = document.getElementById('register-submit-wrap');
+    const registerSubmitHit = document.getElementById('register-submit-hit');
+    const registerSubmitTooltip = document.getElementById('register-submit-tooltip');
+    // tcAcceptedAt/privacyAcceptedAt are declared in the outer scope
+    // above (shared with the emailForm submit handler) — timestamped
+    // independently per checkbox and cleared if unchecked, so a
+    // submission can only ever carry the acceptance time of its current
+    // checked state.
+    updateConsentState = () => {
+      if (registerSubmitBtn) {
+        registerSubmitBtn.disabled = !(termsTcInput?.checked && termsPrivacyInput?.checked);
+      }
+      if (registerSubmitWrap) {
+        registerSubmitWrap.classList.toggle('is-disabled', !!registerSubmitBtn?.disabled);
+      }
+    };
+    if (termsTcInput) {
+      termsTcInput.addEventListener('change', () => {
+        tcAcceptedAt = termsTcInput.checked ? new Date().toISOString() : null;
+        updateConsentState();
+      });
+    }
+    if (termsPrivacyInput) {
+      termsPrivacyInput.addEventListener('change', () => {
+        privacyAcceptedAt = termsPrivacyInput.checked ? new Date().toISOString() : null;
+        updateConsentState();
+      });
+    }
+    updateConsentState();
+
+    // Tooltip on the (wrapper around the) disabled submit button — hover
+    // on desktop, tap on touch devices. Listeners live on the wrapper/hit
+    // overlay rather than the button itself because a native disabled
+    // <button> fires no mouse or touch events at all (not even ones that
+    // would bubble), which is also why register-submit-hit exists: a
+    // plain, non-disabled sibling that only intercepts taps while the
+    // real button is disabled (see .is-disabled in styles.css).
+    const SUBMIT_TOOLTIP_OPENERS = [
+      'Casi, casi...',
+      'Un empujoncito más:',
+      'Ese botón se hace de rogar:',
+      'Falta poquito, lo prometo:',
+    ];
+    function getMissingFields() {
+      const missing = [];
+      if (!(emailFieldInput && emailFieldInput.checkValidity())) {
+        missing.push({ text: 'Tu correo electrónico', target: emailFieldInput?.closest('.register-field') });
+      }
+      if (!(telefonoInput && telefonoInput.value.trim())) {
+        missing.push({ text: 'Tu número de teléfono', target: telefonoInput?.closest('.register-field') });
+      }
+      if (!(termsTcInput && termsTcInput.checked)) {
+        missing.push({ text: 'Aceptar los Términos y Condiciones', target: termsTcInput?.closest('.register-checkbox') });
+      }
+      if (!(termsPrivacyInput && termsPrivacyInput.checked)) {
+        missing.push({ text: 'Autorizar el tratamiento de tus datos', target: termsPrivacyInput?.closest('.register-checkbox') });
+      }
+      return missing;
+    }
+    if (registerSubmitWrap && registerSubmitTooltip && registerSubmitBtn) {
+      let highlightedTargets = [];
+      const clearHighlights = () => {
+        highlightedTargets.forEach((el) => el.classList.remove('is-tooltip-target'));
+        highlightedTargets = [];
+      };
+      const showSubmitTooltip = () => {
+        if (!registerSubmitBtn.disabled) return;
+        const missing = getMissingFields();
+        if (!missing.length) return;
+        const opener = SUBMIT_TOOLTIP_OPENERS[Math.floor(Math.random() * SUBMIT_TOOLTIP_OPENERS.length)];
+        const items = missing.map((f) => `<li>${f.text}</li>`).join('');
+        registerSubmitTooltip.innerHTML = `<span class="register-submit-tooltip-intro">${opener}</span><ul class="register-submit-tooltip-list">${items}</ul>`;
+        clearHighlights();
+        highlightedTargets = missing.map((f) => f.target).filter(Boolean);
+        highlightedTargets.forEach((el) => el.classList.add('is-tooltip-target'));
+        registerSubmitWrap.classList.add('is-tooltip-visible');
+      };
+      const hideSubmitTooltip = () => {
+        registerSubmitWrap.classList.remove('is-tooltip-visible');
+        clearHighlights();
+      };
+      const supportsHover = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+      if (supportsHover) {
+        registerSubmitWrap.addEventListener('mouseenter', showSubmitTooltip);
+        registerSubmitWrap.addEventListener('mouseleave', hideSubmitTooltip);
+      } else if (registerSubmitHit) {
+        registerSubmitHit.addEventListener('click', (e) => {
+          e.preventDefault();
+          if (registerSubmitWrap.classList.contains('is-tooltip-visible')) {
+            hideSubmitTooltip();
+          } else {
+            showSubmitTooltip();
+          }
+        });
+        document.addEventListener('click', (e) => {
+          if (!registerSubmitWrap.classList.contains('is-tooltip-visible')) return;
+          if (registerSubmitWrap.contains(e.target)) return;
+          hideSubmitTooltip();
+        });
+      }
+      registerSubmitWrap.addEventListener('focusin', showSubmitTooltip);
+      registerSubmitWrap.addEventListener('focusout', hideSubmitTooltip);
+    }
+
     const introTitle = document.getElementById('pf-step0-title');
     const introNameInput = document.getElementById('intro-name-input');
     const introContinueBtn = document.getElementById('intro-name-continue');
@@ -1210,7 +1245,8 @@ document.addEventListener('DOMContentLoaded', () => {
     [nombreInput, emailFieldInput, telefonoInput].forEach((el) => {
       if (el) el.addEventListener('input', updateStepStates);
     });
-    if (termsInput) termsInput.addEventListener('change', updateStepStates);
+    if (termsTcInput) termsTcInput.addEventListener('change', updateStepStates);
+    if (termsPrivacyInput) termsPrivacyInput.addEventListener('change', updateStepStates);
 
     // The first time a volume is picked, step 2 unlocks below the fold on
     // most screens — smoothly scroll to the start of its heading once the
@@ -1510,10 +1546,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const nombreOk = validateNombreFormat();
         const [emailOk, telefonoOk] = await Promise.all([validateEmailDuplicate(), validateTelefonoDuplicate()]);
         if (!nombreOk || !emailOk || !telefonoOk) return;
+        // Defense in depth: the submit button is disabled and both boxes
+        // are native `required` fields, but a programmatic form.submit()
+        // bypasses both — refuse here too rather than log a lead with a
+        // missing consent timestamp.
+        if (!tcAcceptedAt || !privacyAcceptedAt) return;
 
         const nombreValue = emailForm.querySelector('input[name="nombre"]').value;
         const telefonoValue = emailForm.querySelector('input[name="telefono"]').value;
         const tier = volumeInput ? volumeInput.value : '';
+        const geo = await geoIpPromise;
 
         saveLeadToSupabase({
           nombre: nombreValue,
@@ -1522,6 +1564,13 @@ document.addEventListener('DOMContentLoaded', () => {
           volumen_pedidos: tier,
           interes: new URLSearchParams(window.location.search).get('interest') || null,
           pagina_origen: document.referrer || null,
+          ip_address: geo?.ip || null,
+          geo_location: geo ? { city: geo.city, region: geo.region, country: geo.country, postal: geo.postal, latitude: geo.latitude, longitude: geo.longitude } : null,
+          user_agent: navigator.userAgent,
+          tc_accepted_at: tcAcceptedAt,
+          privacy_accepted_at: privacyAcceptedAt,
+          tc_version: TC_VERSION,
+          privacy_version: PRIVACY_VERSION,
         });
 
         // The terms/privacy checkbox is a native `required` field, so
@@ -1547,6 +1596,9 @@ document.addEventListener('DOMContentLoaded', () => {
           sessionStorage.setItem('dropiTier', tier);
         } catch (err) { /* sessionStorage unavailable (private mode, etc.) — skip persistence */ }
         emailForm.reset();
+        tcAcceptedAt = null;
+        privacyAcceptedAt = null;
+        updateConsentState();
         [nombreInput, emailInput, telefonoInput].forEach((el) => setFieldValid(el, false));
         if (registroSection) registroSection.hidden = true;
         const defaultChip = volumeChips.find((c) => c.dataset.tier === volumeInput.value) || volumeChips[0];
