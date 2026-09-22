@@ -110,6 +110,12 @@ function initKineticText() {
     : ['main h1', 'main h2', 'main h3', 'main p', 'main li', 'main .btn', '.faq-question span'].join(', ');
 
   const targets = Array.from(document.querySelectorAll(selector)).filter((el) => {
+    // The homepage hero (title, subtitle, CTA) is the LCP candidate on
+    // first load — hiding it behind a JS word-reveal delays that paint
+    // until main.js has fetched, parsed and run, which is exactly what
+    // was tanking the PageSpeed LCP score. It renders immediately,
+    // fully visible, instead of animating in.
+    if (el.closest('.hero')) return false;
     if (el.closest('.kinetic-text')) return false; // avoid double-wrapping nested matches
     if (el.closest('.solution-card')) return false; // these get their own entrance animation instead
     if (el.closest('.dolor-item')) return false; // these get their own entrance animation instead

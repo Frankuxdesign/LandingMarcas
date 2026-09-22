@@ -8,59 +8,8 @@
 <meta name="description" content="Ofrece pago contra entrega a tus clientes y elimina la principal barrera de compra en e-commerce con Dropi." />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,500;0,600;0,700;0,800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,500;0,600;0,700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/styles.css">
-<script type="text/javascript">
-    (function(c,l,a,r,i,t,y){
-        c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
-        t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
-        y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
-    })(window, document, "clarity", "script", "ylx4fr9h5b");
-</script>
-<!-- Meta Pixel Code -->
-<script>
-!function(f,b,e,v,n,t,s)
-{if(f.fbq)return;n=f.fbq=function(){n.callMethod?
-n.callMethod.apply(n,arguments):n.queue.push(arguments)};
-if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
-n.queue=[];t=b.createElement(e);t.async=!0;
-t.src=v;s=b.getElementsByTagName(e)[0];
-s.parentNode.insertBefore(t,s)}(window, document,'script',
-'https://connect.facebook.net/en_US/fbevents.js');
-fbq('init', '1993505871363238');
-fbq('track', 'PageView');
-</script>
-<noscript><img height="1" width="1" style="display:none"
-src="https://www.facebook.com/tr?id=1993505871363238&ev=PageView&noscript=1"
-/></noscript>
-<!-- End Meta Pixel Code -->
-<script>
-(function (m, a, z, e) {
-  var s, t, u, v;
-  try {
-    t = m.sessionStorage.getItem('maze-us');
-  } catch (err) {}
-
-  if (!t) {
-    t = new Date().getTime();
-    try {
-      m.sessionStorage.setItem('maze-us', t);
-    } catch (err) {}
-  }
-u = document.currentScript || (function () {
-    var w = document.getElementsByTagName('script');
-    return w[w.length - 1];
-  })();
-  v = u && u.nonce;
-
-  s = a.createElement('script');
-  s.src = z + '?apiKey=' + e;
-  s.async = true;
-  if (v) s.setAttribute('nonce', v);
-  a.getElementsByTagName('head')[0].appendChild(s);
-  m.mazeUniversalSnippetApiKey = e;
-})(window, document, 'https://snippet.maze.co/maze-universal-loader.js', 'd0000a3-f0c7-4e09-a555-4a538dd6a88e');
-</script>
 </head>
 <body>
 
@@ -73,7 +22,7 @@ u = document.currentScript || (function () {
 </header>
 
 <main>
-  <section class="service-hero" style="background-image: url('assets/images/service2-pago-contraentrega.jpg');">
+  <section class="service-hero" style="background-image: image-set(url('assets/images/service2-pago-contraentrega.webp') type('image/webp'), url('assets/images/service2-pago-contraentrega.jpg') type('image/jpeg'));">
     <div class="service-hero-overlay" aria-hidden="true"></div>
     <div class="container service-hero-inner">
       <div class="service-hero-content" data-solution-badge="Pago contra entrega">
@@ -111,7 +60,10 @@ u = document.currentScript || (function () {
       </div>
 
       <div class="service-image-wrap">
-        <img class="service-image" src="assets/images/service2-pago-contraentrega.jpg" alt="Cliente pagando en efectivo al recibir su pedido en la puerta de su casa" loading="lazy" />
+        <picture>
+          <source srcset="assets/images/service2-pago-contraentrega.webp" type="image/webp" />
+          <img class="service-image" src="assets/images/service2-pago-contraentrega.jpg" alt="Cliente pagando en efectivo al recibir su pedido en la puerta de su casa" loading="lazy" />
+        </picture>
       </div>
 
       <div class="service-copy">
@@ -155,7 +107,10 @@ u = document.currentScript || (function () {
         <div class="solutions-scroll-spacer" aria-hidden="true"></div>
         <article class="solution-card">
           <div class="solution-card-image">
-            <img src="assets/images/service2-atencion-vip-placeholder.jpg" alt="" loading="lazy" />
+            <picture>
+              <source srcset="assets/images/service2-atencion-vip-placeholder.webp" type="image/webp" />
+              <img src="assets/images/service2-atencion-vip-placeholder.jpg" alt="" loading="lazy" />
+            </picture>
             <span class="solution-card-badge">Atención VIP</span>
           </div>
           <span class="solution-card-recommended" hidden>Recomendado para ti</span>
@@ -173,7 +128,10 @@ u = document.currentScript || (function () {
 
         <article class="solution-card">
           <div class="solution-card-image">
-            <img src="assets/images/service2-asistentes-ia.jpg" alt="" loading="lazy" />
+            <picture>
+              <source srcset="assets/images/service2-asistentes-ia.webp" type="image/webp" />
+              <img src="assets/images/service2-asistentes-ia.jpg" alt="" loading="lazy" />
+            </picture>
             <span class="solution-card-badge">Asistentes IA</span>
           </div>
           <span class="solution-card-recommended" hidden>Recomendado para ti</span>
@@ -191,7 +149,10 @@ u = document.currentScript || (function () {
 
         <article class="solution-card">
           <div class="solution-card-image">
-            <img src="assets/images/service2-notificaciones.jpg" alt="" loading="lazy" />
+            <picture>
+              <source srcset="assets/images/service2-notificaciones.webp" type="image/webp" />
+              <img src="assets/images/service2-notificaciones.jpg" alt="" loading="lazy" />
+            </picture>
             <span class="solution-card-badge">Notificaciones</span>
           </div>
           <span class="solution-card-recommended" hidden>Recomendado para ti</span>
@@ -209,7 +170,10 @@ u = document.currentScript || (function () {
 
         <article class="solution-card">
           <div class="solution-card-image">
-            <img src="assets/images/service2-fullfilment-v2.jpeg" alt="" loading="lazy" />
+            <picture>
+              <source srcset="assets/images/service2-fullfilment-v2.webp" type="image/webp" />
+              <img src="assets/images/service2-fullfilment-v2.jpeg" alt="" loading="lazy" />
+            </picture>
             <span class="solution-card-badge">Fulfillment</span>
           </div>
           <span class="solution-card-recommended" hidden>Recomendado para ti</span>
@@ -231,7 +195,10 @@ u = document.currentScript || (function () {
 
         <article class="solution-card">
           <div class="solution-card-image">
-            <img src="assets/images/service2-wallet-v2.jpg" alt="" style="object-position: 50% 20%;" loading="lazy" />
+            <picture>
+              <source srcset="assets/images/service2-wallet-v2.webp" type="image/webp" />
+              <img src="assets/images/service2-wallet-v2.jpg" alt="" style="object-position: 50% 20%;" loading="lazy" />
+            </picture>
             <span class="solution-card-badge">Wallet</span>
           </div>
           <span class="solution-card-recommended" hidden>Recomendado para ti</span>
@@ -253,7 +220,10 @@ u = document.currentScript || (function () {
 
         <article class="solution-card">
           <div class="solution-card-image">
-            <img src="assets/images/service2-api-publica.jpg" alt="" loading="lazy" />
+            <picture>
+              <source srcset="assets/images/service2-api-publica.webp" type="image/webp" />
+              <img src="assets/images/service2-api-publica.jpg" alt="" loading="lazy" />
+            </picture>
             <span class="solution-card-badge">API Pública</span>
           </div>
           <span class="solution-card-recommended" hidden>Recomendado para ti</span>
@@ -271,7 +241,10 @@ u = document.currentScript || (function () {
 
         <article class="solution-card">
           <div class="solution-card-image">
-            <img src="assets/images/service2-metrics.jpg" alt="" loading="lazy" />
+            <picture>
+              <source srcset="assets/images/service2-metrics.webp" type="image/webp" />
+              <img src="assets/images/service2-metrics.jpg" alt="" loading="lazy" />
+            </picture>
             <span class="solution-card-badge">Métricas y reportes</span>
           </div>
           <span class="solution-card-recommended" hidden>Recomendado para ti</span>
@@ -289,7 +262,10 @@ u = document.currentScript || (function () {
 
         <article class="solution-card">
           <div class="solution-card-image">
-            <img src="assets/images/service2-huella-digital.jpg" alt="" loading="lazy" />
+            <picture>
+              <source srcset="assets/images/service2-huella-digital.webp" type="image/webp" />
+              <img src="assets/images/service2-huella-digital.jpg" alt="" loading="lazy" />
+            </picture>
             <span class="solution-card-badge">Huella Digital</span>
           </div>
           <span class="solution-card-recommended" hidden>Recomendado para ti</span>
@@ -307,7 +283,10 @@ u = document.currentScript || (function () {
 
         <article class="solution-card">
           <div class="solution-card-image">
-            <img src="assets/images/service2-gestion-entregas.jpg" alt="" loading="lazy" />
+            <picture>
+              <source srcset="assets/images/service2-gestion-entregas.webp" type="image/webp" />
+              <img src="assets/images/service2-gestion-entregas.jpg" alt="" loading="lazy" />
+            </picture>
             <span class="solution-card-badge">Gestión de entregas</span>
           </div>
           <div class="solution-card-body">
@@ -327,7 +306,10 @@ u = document.currentScript || (function () {
 
         <article class="solution-card">
           <div class="solution-card-image">
-            <img src="assets/images/service2-pago-contraentrega.jpg" alt="" loading="lazy" />
+            <picture>
+              <source srcset="assets/images/service2-pago-contraentrega.webp" type="image/webp" />
+              <img src="assets/images/service2-pago-contraentrega.jpg" alt="" loading="lazy" />
+            </picture>
             <span class="solution-card-badge">Pago contra entrega</span>
           </div>
           <span class="solution-card-recommended" hidden>Recomendado para ti</span>
@@ -345,7 +327,10 @@ u = document.currentScript || (function () {
 
         <article class="solution-card">
           <div class="solution-card-image">
-            <img src="assets/images/service2-mentorias.jpg" alt="" loading="lazy" />
+            <picture>
+              <source srcset="assets/images/service2-mentorias.webp" type="image/webp" />
+              <img src="assets/images/service2-mentorias.jpg" alt="" loading="lazy" />
+            </picture>
             <span class="solution-card-badge">Mentorías</span>
           </div>
           <span class="solution-card-recommended" hidden>Recomendado para ti</span>
@@ -482,6 +467,57 @@ u = document.currentScript || (function () {
 </footer>
 
 
+<script type="text/javascript">
+    (function(c,l,a,r,i,t,y){
+        c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+        t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+        y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+    })(window, document, "clarity", "script", "ylx4fr9h5b");
+</script>
+<!-- Meta Pixel Code -->
+<script>
+!function(f,b,e,v,n,t,s)
+{if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+n.queue=[];t=b.createElement(e);t.async=!0;
+t.src=v;s=b.getElementsByTagName(e)[0];
+s.parentNode.insertBefore(t,s)}(window, document,'script',
+'https://connect.facebook.net/en_US/fbevents.js');
+fbq('init', '1993505871363238');
+fbq('track', 'PageView');
+</script>
+<noscript><img height="1" width="1" style="display:none"
+src="https://www.facebook.com/tr?id=1993505871363238&ev=PageView&noscript=1"
+/></noscript>
+<!-- End Meta Pixel Code -->
+<script>
+(function (m, a, z, e) {
+  var s, t, u, v;
+  try {
+    t = m.sessionStorage.getItem('maze-us');
+  } catch (err) {}
+
+  if (!t) {
+    t = new Date().getTime();
+    try {
+      m.sessionStorage.setItem('maze-us', t);
+    } catch (err) {}
+  }
+u = document.currentScript || (function () {
+    var w = document.getElementsByTagName('script');
+    return w[w.length - 1];
+  })();
+  v = u && u.nonce;
+
+  s = a.createElement('script');
+  s.src = z + '?apiKey=' + e;
+  s.async = true;
+  if (v) s.setAttribute('nonce', v);
+  a.getElementsByTagName('head')[0].appendChild(s);
+  m.mazeUniversalSnippetApiKey = e;
+})(window, document, 'https://snippet.maze.co/maze-universal-loader.js', 'd0000a3-f0c7-4e09-a555-4a538dd6a88e');
+</script>
 <script src="js/main.js"></script>
 </body>
 </html>

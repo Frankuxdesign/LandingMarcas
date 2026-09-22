@@ -651,20 +651,6 @@ p.kinetic-text.in-view .kinetic-word {
   height: auto;
   object-fit: contain;
   object-position: bottom;
-  opacity: 0;
-  transform: translateY(56px);
-  clip-path: inset(0 0 100% 0);
-  transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
-    transform 0.9s cubic-bezier(0.16, 1, 0.3, 1),
-    clip-path 0.9s cubic-bezier(0.16, 1, 0.3, 1);
-}
-.brand-image.in-view img {
-  opacity: 1;
-  transform: translateY(0);
-  clip-path: inset(0 0 0% 0);
-}
-@media (prefers-reduced-motion: reduce) {
-  .brand-image img { opacity: 1; transform: none; clip-path: none; transition: none; }
 }
 @media (max-width: 639px) {
   .brand-image img { max-width: 90%; }
