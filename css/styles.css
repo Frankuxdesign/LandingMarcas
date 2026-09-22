@@ -484,7 +484,7 @@ p.kinetic-text.in-view .kinetic-word {
   box-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.25);
   background: var(--neutral-900);
 }
-.hero-mockup img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.hero-mockup img { width: 100%; height: 100%; object-fit: cover; object-position: left top; display: block; }
 
 .decor-box-float {
   position: absolute;
